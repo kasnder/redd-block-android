@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ReDD Block</string>
+
+    <!-- Home Screen -->
+    <string name="setup_required">Setup Required</string>
+    <string name="setup_required_desc">Enable accessibility service to start blocking</string>
+    <string name="protection_active">Protection Active</string>
+    <string name="schedules_active_count">%d schedule(s) active</string>
+    <string name="no_active_schedules">No active schedules</string>
+    <string name="schedules">Schedules</string>
+    <string name="schedules_desc">Schedule blocks for apps and websites</string>
+    <string name="permissions">Permissions</string>
+    <string name="permissions_desc">Manage app permissions</string>
+
+    <!-- Schedules Screen -->
+    <string name="back">Back</string>
+    <string name="create_schedule">Create Schedule</string>
+    <string name="edit_schedule">Edit Schedule</string>
+    <string name="no_schedules">No schedules yet</string>
+    <string name="no_schedules_desc">Tap + to create your first schedule</string>
+    <string name="manual">Manual</string>
+    <string name="daily">Daily</string>
+    <string name="weekly">Weekly</string>
+    <string name="daily_time_range">Daily %1$s – %2$s</string>
+    <string name="blocked_items_count">%d blocked</string>
+
+    <!-- Create Schedule Screen -->
+    <string name="schedule_name">Schedule name</string>
+    <string name="schedule_type">Schedule Type</string>
+    <string name="start_time">Start time</string>
+    <string name="end_time">End time</string>
+    <string name="days">Days</string>
+    <string name="blocked_apps">Blocked Apps</string>
+    <string name="blocked_websites">Blocked Websites</string>
+    <string name="add_app">Add App</string>
+    <string name="add_website">Add Website</string>
+    <string name="remove">Remove</string>
+    <string name="save">Save</string>
+    <string name="select_time">Select Time</string>
+    <string name="ok">OK</string>
+    <string name="cancel">Cancel</string>
+    <string name="select_apps">Select Apps</string>
+    <string name="search_apps">Search apps…</string>
+    <string name="add_selected">Add (%d)</string>
+    <string name="add">Add</string>
+    <string name="website_placeholder">e.g. reddit.com</string>
+    <string name="delete">Delete</string>
+    <string name="delete_schedule">Delete Schedule</string>
+    <string name="delete_schedule_confirm">Delete \"%s\"? This cannot be undone.</string>
+
+    <!-- Friction Settings -->
+    <string name="friction_settings">Friction Settings</string>
+    <string name="friction_word_count">Words required to edit</string>
+    <string name="friction_word_count_desc">Number of random words you must type before you can edit or disable this active schedule</string>
+    <string name="auto_reenable">Auto re-enable after disabling</string>
+    <string name="auto_reenable_desc">When you disable this schedule, it will automatically re-enable after this duration</string>
+    <string name="auto_reenable_never">Never</string>
+    <string name="auto_reenable_15min">15 minutes</string>
+    <string name="auto_reenable_30min">30 minutes</string>
+    <string name="auto_reenable_1hr">1 hour</string>
+    <string name="auto_reenable_2hr">2 hours</string>
+    <string name="auto_reenable_4hr">4 hours</string>
+    <string name="auto_reenable_8hr">8 hours</string>
+    <string name="auto_reenable_24hr">24 hours</string>
+
+    <!-- Friction Gate Screen -->
+    <string name="friction_gate_title">Confirm Action</string>
+    <string name="friction_gate_desc">Type each word below to confirm you want to proceed. This helps prevent impulsive changes.</string>
+    <string name="friction_gate_progress">Word %1$d of %2$d</string>
+    <string name="friction_gate_input_label">Type the word above</string>
+    <string name="friction_gate_error">That doesn\'t match. Try again.</string>
+    <string name="friction_gate_next">Next</string>
+    <string name="friction_gate_finish">Finish</string>
+
+    <!-- Permissions Screen -->
+    <string name="permissions_info">These permissions are needed for ReDD Block to function properly.</string>
+    <string name="accessibility_service">Accessibility Service</string>
+    <string name="accessibility_service_desc">Required to detect and block apps and websites</string>
+    <string name="notifications">Notifications</string>
+    <string name="notifications_desc">Show alerts when apps or websites are blocked</string>
+    <string name="battery_optimization">Battery Optimization</string>
+    <string name="battery_optimization_desc">Ensure blocking runs reliably in the background</string>
+    <string name="required">REQUIRED</string>
+
+    <!-- Notifications -->
+    <string name="blocker_channel_name">Blocker</string>
+    <string name="blocker_channel_desc">Notifications when apps or websites are blocked</string>
+    <string name="schedule_channel_name">Schedules</string>
+    <string name="schedule_channel_desc">Schedule activation and deactivation alerts</string>
+
+    <string name="app_blocked">App Blocked</string>
+    <string name="blocked_by_schedule">%s is blocked by an active schedule</string>
+    <string name="website_blocked">Website Blocked</string>
+    <string name="website_blocked_by_schedule">%s is blocked by an active schedule</string>
+
+    <string name="schedule_activated">Schedule Activated</string>
+    <string name="schedule_activated_desc">%s is now active</string>
+    <string name="schedule_deactivated">Schedule Ended</string>
+    <string name="schedule_deactivated_desc">%s has been deactivated</string>
+
+    <!-- Accessibility Service config -->
+    <string name="accessibility_service_label">ReDD Block</string>
+    <string name="accessibility_service_summary">Monitors app launches and browser navigation to enforce blocking schedules.</string>
+</resources>
