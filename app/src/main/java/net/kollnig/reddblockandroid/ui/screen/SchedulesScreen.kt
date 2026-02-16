@@ -18,120 +18,136 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import java.time.format.TextStyle
+import java.util.Locale
 import net.kollnig.reddblockandroid.R
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
 import net.kollnig.reddblockandroid.schedule.Schedules
-import java.time.format.TextStyle
-import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SchedulesScreen(
-    onCreateSchedule: () -> Unit,
-    onEditSchedule: (Schedule) -> Unit,
-    onFrictionGateRequired: (Schedule, () -> Unit) -> Unit,
-    onBackPressed: () -> Unit
+        onCreateSchedule: () -> Unit,
+        onEditSchedule: (Schedule) -> Unit,
+        onFrictionGateRequired: (Schedule, () -> Unit) -> Unit,
+        onBackPressed: () -> Unit
 ) {
     val context = LocalContext.current
     var schedules by remember { mutableStateOf(Schedules.getAll()) }
     val activeSessions = remember { mutableStateOf(Schedules.getActiveSessions()) }
 
     fun refreshSchedules() {
+        // Auto-reenable any schedules whose disabledUntil has expired
+        val now = System.currentTimeMillis()
+        for (schedule in Schedules.getAll()) {
+            val until = schedule.disabledUntil
+            if (!schedule.isEnabled && until != null && until <= now) {
+                Schedules.reEnableSchedule(context, schedule.id)
+            }
+        }
         schedules = Schedules.getAll()
         activeSessions.value = Schedules.getActiveSessions()
     }
 
-    LaunchedEffect(Unit) {
-        refreshSchedules()
+    // Refresh on every resume so back-navigation always shows fresh state
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                refreshSchedules()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        stringResource(R.string.schedules),
-                        fontWeight = FontWeight.Bold
+            topBar = {
+                TopAppBar(
+                        title = {
+                            Text(stringResource(R.string.schedules), fontWeight = FontWeight.Bold)
+                        },
+                        navigationIcon = {
+                            IconButton(onClick = onBackPressed) {
+                                Icon(
+                                        Icons.AutoMirrored.Rounded.ArrowBack,
+                                        contentDescription = stringResource(R.string.back)
+                                )
+                            }
+                        }
+                )
+            },
+            floatingActionButton = {
+                FloatingActionButton(onClick = onCreateSchedule) {
+                    Icon(
+                            Icons.Rounded.Add,
+                            contentDescription = stringResource(R.string.create_schedule)
                     )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBackPressed) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
-                    }
                 }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = onCreateSchedule) {
-                Icon(Icons.Rounded.Add, contentDescription = stringResource(R.string.create_schedule))
             }
-        }
     ) { innerPadding ->
         if (schedules.isEmpty()) {
             Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
+                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    contentAlignment = Alignment.Center
             ) {
                 Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
-                        Icons.Rounded.EventBusy,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            Icons.Rounded.EventBusy,
+                            contentDescription = null,
+                            modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                     )
                     Text(
-                        stringResource(R.string.no_schedules),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                            stringResource(R.string.no_schedules),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
-                        stringResource(R.string.no_schedules_desc),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            stringResource(R.string.no_schedules_desc),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                     )
                 }
             }
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                    modifier = Modifier.fillMaxSize().padding(innerPadding),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(schedules, key = { it.id }) { schedule ->
                     val isActive = activeSessions.value.any { it.scheduleId == schedule.id }
                     ScheduleItem(
-                        schedule = schedule,
-                        isActive = isActive,
-                        onClick = {
-                            if (isActive) {
-                                // Friction gate needed before editing active schedule
-                                onFrictionGateRequired(schedule) {
+                            schedule = schedule,
+                            isActive = isActive,
+                            onClick = {
+                                if (isActive) {
+                                    // Friction gate needed before editing active schedule
+                                    onFrictionGateRequired(schedule) { onEditSchedule(schedule) }
+                                } else {
                                     onEditSchedule(schedule)
                                 }
-                            } else {
-                                onEditSchedule(schedule)
-                            }
-                        },
-                        onToggle = {
-                            if (isActive) {
-                                // Friction gate needed before disabling active schedule
-                                onFrictionGateRequired(schedule) {
+                            },
+                            onToggle = {
+                                if (isActive) {
+                                    // Friction gate needed before disabling active schedule
+                                    onFrictionGateRequired(schedule) {
+                                        Schedules.toggle(schedule.id, context)
+                                        refreshSchedules()
+                                    }
+                                } else {
                                     Schedules.toggle(schedule.id, context)
                                     refreshSchedules()
                                 }
-                            } else {
-                                Schedules.toggle(schedule.id, context)
-                                refreshSchedules()
                             }
-                        }
                     )
                 }
             }
@@ -141,81 +157,75 @@ fun SchedulesScreen(
 
 @Composable
 private fun ScheduleItem(
-    schedule: Schedule,
-    isActive: Boolean,
-    onClick: () -> Unit,
-    onToggle: () -> Unit
+        schedule: Schedule,
+        isActive: Boolean,
+        onClick: () -> Unit,
+        onToggle: () -> Unit
 ) {
-    val containerColor by animateColorAsState(
-        targetValue = if (isActive)
-            MaterialTheme.colorScheme.primaryContainer
-        else
-            MaterialTheme.colorScheme.surfaceContainerHigh,
-        label = "containerColor"
-    )
+    val containerColor by
+            animateColorAsState(
+                    targetValue =
+                            if (isActive) MaterialTheme.colorScheme.primaryContainer
+                            else MaterialTheme.colorScheme.surfaceContainerHigh,
+                    label = "containerColor"
+            )
 
     Card(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = containerColor)
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = containerColor)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Surface(
-                modifier = Modifier.size(44.dp),
-                shape = CircleShape,
-                color = if (isActive)
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                else
-                    MaterialTheme.colorScheme.surfaceContainerHighest
+                    modifier = Modifier.size(44.dp),
+                    shape = CircleShape,
+                    color =
+                            if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                            else MaterialTheme.colorScheme.surfaceContainerHighest
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Icon(
-                        if (isActive) Icons.Rounded.PlayArrow else Icons.Rounded.Schedule,
-                        contentDescription = null,
-                        modifier = Modifier.size(22.dp),
-                        tint = if (isActive)
-                            MaterialTheme.colorScheme.primary
-                        else
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            if (isActive) Icons.Rounded.PlayArrow else Icons.Rounded.Schedule,
+                            contentDescription = null,
+                            modifier = Modifier.size(22.dp),
+                            tint =
+                                    if (isActive) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    schedule.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = if (isActive)
-                        MaterialTheme.colorScheme.onPrimaryContainer
-                    else
-                        MaterialTheme.colorScheme.onSurface
+                        schedule.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color =
+                                if (isActive) MaterialTheme.colorScheme.onPrimaryContainer
+                                else MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    buildScheduleDescription(schedule),
-                    style = MaterialTheme.typography.bodySmall,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    color = if (isActive)
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-                    else
-                        MaterialTheme.colorScheme.onSurfaceVariant
+                        buildScheduleDescription(schedule),
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color =
+                                if (isActive)
+                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                                                alpha = 0.7f
+                                        )
+                                else MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
-            Switch(
-                checked = schedule.isEnabled && isActive,
-                onCheckedChange = { onToggle() }
-            )
+            Switch(checked = schedule.isEnabled, onCheckedChange = { onToggle() })
         }
     }
 }
@@ -229,14 +239,22 @@ private fun buildScheduleDescription(schedule: Schedule): String {
         ScheduleTiming.ScheduleType.DAILY -> {
             schedule.timing.time?.let { start ->
                 schedule.timing.endTime?.let { end ->
-                    parts.add(stringResource(R.string.daily_time_range, start.toString(), end.toString()))
+                    parts.add(
+                            stringResource(
+                                    R.string.daily_time_range,
+                                    start.toString(),
+                                    end.toString()
+                            )
+                    )
                 }
             }
         }
         ScheduleTiming.ScheduleType.WEEKLY -> {
             if (schedule.timing.daysOfWeek.isNotEmpty()) {
-                val dayNames = schedule.timing.daysOfWeek.sortedBy { it.value }
-                    .joinToString(", ") { it.getDisplayName(TextStyle.SHORT, Locale.getDefault()) }
+                val dayNames =
+                        schedule.timing.daysOfWeek.sortedBy { it.value }.joinToString(", ") {
+                            it.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                        }
                 parts.add(dayNames)
             }
         }
