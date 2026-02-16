@@ -24,6 +24,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import net.kollnig.reddblockandroid.R
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
@@ -380,15 +382,20 @@ fun CreateScheduleScreen(
                 fontWeight = FontWeight.Bold
             )
 
-            blockedApps.forEach { pkg ->
-                val appName = try {
-                    context.packageManager.getApplicationLabel(
-                        context.packageManager.getApplicationInfo(pkg, 0)
-                    ).toString()
-                } catch (_: PackageManager.NameNotFoundException) {
-                    pkg
+            // Cache app name lookups to avoid IPC on every recomposition
+            val appNameCache = remember(blockedApps) {
+                blockedApps.associateWith { pkg ->
+                    try {
+                        context.packageManager.getApplicationLabel(
+                            context.packageManager.getApplicationInfo(pkg, 0)
+                        ).toString()
+                    } catch (_: PackageManager.NameNotFoundException) {
+                        pkg
+                    }
                 }
+            }
 
+            blockedApps.forEach { pkg ->
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp)
@@ -400,7 +407,7 @@ fun CreateScheduleScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            appName,
+                            appNameCache[pkg] ?: pkg,
                             modifier = Modifier.weight(1f),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -611,28 +618,38 @@ private fun AppPickerDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val installedApps = remember {
-        context.packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-            .filter { appInfo ->
-                // Filter to launchable, non-system apps
-                val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
-                val hasLauncher = context.packageManager.getLaunchIntentForPackage(appInfo.packageName) != null
-                val isNotSelf = appInfo.packageName != context.packageName
-                (!isSystem || hasLauncher) && isNotSelf && !alreadySelected.contains(appInfo.packageName)
-            }
-            .sortedBy {
-                context.packageManager.getApplicationLabel(it).toString().lowercase()
-            }
+    var installedApps by remember { mutableStateOf<List<ApplicationInfo>?>(null) }
+    // Cache labels to avoid repeated IPC calls
+    var labelCache by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
+
+    // Load apps asynchronously on a background thread
+    LaunchedEffect(alreadySelected) {
+        val (apps, labels) = withContext(Dispatchers.IO) {
+            val allApps = context.packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
+                .filter { appInfo ->
+                    val isSystem = (appInfo.flags and ApplicationInfo.FLAG_SYSTEM) != 0
+                    val hasLauncher = context.packageManager.getLaunchIntentForPackage(appInfo.packageName) != null
+                    val isNotSelf = appInfo.packageName != context.packageName
+                    (!isSystem || hasLauncher) && isNotSelf && !alreadySelected.contains(appInfo.packageName)
+                }
+            val cache = allApps.associate { it.packageName to context.packageManager.getApplicationLabel(it).toString() }
+            val sorted = allApps.sortedBy { cache[it.packageName]?.lowercase() }
+            sorted to cache
+        }
+        installedApps = apps
+        labelCache = labels
     }
 
     var searchQuery by remember { mutableStateOf("") }
     val selected = remember { mutableStateListOf<String>() }
 
-    val filteredApps = if (searchQuery.isBlank()) installedApps
-    else installedApps.filter {
-        val label = context.packageManager.getApplicationLabel(it).toString()
-        label.contains(searchQuery, ignoreCase = true) ||
-                it.packageName.contains(searchQuery, ignoreCase = true)
+    val filteredApps = installedApps?.let { apps ->
+        if (searchQuery.isBlank()) apps
+        else apps.filter {
+            val label = labelCache[it.packageName] ?: it.packageName
+            label.contains(searchQuery, ignoreCase = true) ||
+                    it.packageName.contains(searchQuery, ignoreCase = true)
+        }
     }
 
     AlertDialog(
@@ -652,43 +669,55 @@ private fun AppPickerDialog(
                     }
                 )
                 Spacer(Modifier.height(8.dp))
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(max = 400.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    items(filteredApps) { appInfo ->
-                        val label = context.packageManager.getApplicationLabel(appInfo).toString()
-                        val isChecked = selected.contains(appInfo.packageName)
+                if (filteredApps == null) {
+                    // Show loading spinner while apps load on background thread
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 400.dp),
+                        verticalArrangement = Arrangement.spacedBy(2.dp)
+                    ) {
+                        items(filteredApps, key = { it.packageName }) { appInfo ->
+                            val label = labelCache[appInfo.packageName] ?: appInfo.packageName
+                            val isChecked = selected.contains(appInfo.packageName)
 
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Checkbox(
-                                checked = isChecked,
-                                onCheckedChange = {
-                                    if (isChecked) selected.remove(appInfo.packageName)
-                                    else selected.add(appInfo.packageName)
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Checkbox(
+                                    checked = isChecked,
+                                    onCheckedChange = {
+                                        if (isChecked) selected.remove(appInfo.packageName)
+                                        else selected.add(appInfo.packageName)
+                                    }
+                                )
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        label,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                    Text(
+                                        appInfo.packageName,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
                                 }
-                            )
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    label,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Text(
-                                    appInfo.packageName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
                             }
                         }
                     }
