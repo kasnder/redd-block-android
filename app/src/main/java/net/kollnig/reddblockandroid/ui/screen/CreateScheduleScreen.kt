@@ -79,6 +79,8 @@ fun CreateScheduleScreen(
 
     val autoReenableOptions = listOf(
         0 to stringResource(R.string.auto_reenable_never),
+        5 to stringResource(R.string.auto_reenable_5min),
+        10 to stringResource(R.string.auto_reenable_10min),
         15 to stringResource(R.string.auto_reenable_15min),
         30 to stringResource(R.string.auto_reenable_30min),
         60 to stringResource(R.string.auto_reenable_1hr),

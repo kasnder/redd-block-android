@@ -8,7 +8,7 @@ import net.kollnig.reddblockandroid.schedule.ScheduleManager
 import net.kollnig.reddblockandroid.util.prefs
 import java.util.concurrent.TimeUnit
 
-class ReDDBlockApp : Application(), Configuration.Provider {
+class App : Application(), Configuration.Provider {
 
     override val workManagerConfiguration: Configuration
         get() = Configuration.Builder()

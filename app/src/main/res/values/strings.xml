@@ -56,6 +56,8 @@
     <string name="auto_reenable">Auto re-enable after disabling</string>
     <string name="auto_reenable_desc">When you disable this schedule, it will automatically re-enable after this duration</string>
     <string name="auto_reenable_never">Never</string>
+    <string name="auto_reenable_5min">5 minutes</string>
+    <string name="auto_reenable_10min">10 minutes</string>
     <string name="auto_reenable_15min">15 minutes</string>
     <string name="auto_reenable_30min">30 minutes</string>
     <string name="auto_reenable_1hr">1 hour</string>
