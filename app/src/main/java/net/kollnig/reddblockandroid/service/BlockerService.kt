@@ -108,17 +108,50 @@ class BlockerService : AccessibilityService() {
         }
     }
 
+    /** Maps browser package names to their URL bar view IDs */
+    private val browserUrlViewIds = mapOf(
+        // Firefox variants
+        "org.mozilla.firefox" to listOf("mozac_browser_toolbar_url_view", "url_bar_title"),
+        "org.mozilla.firefox_beta" to listOf("mozac_browser_toolbar_url_view", "url_bar_title"),
+        "org.mozilla.fenix" to listOf("mozac_browser_toolbar_url_view", "url_bar_title"),
+        "org.mozilla.fenix.nightly" to listOf("mozac_browser_toolbar_url_view", "url_bar_title"),
+        "org.mozilla.focus" to listOf("mozac_browser_toolbar_url_view", "url_bar_title"),
+        // Chrome / Chromium
+        "com.android.chrome" to listOf("url_bar", "origin"),
+        "com.chrome.beta" to listOf("url_bar"),
+        "org.chromium.chrome" to listOf("url_bar"),
+        // Brave
+        "com.brave.browser" to listOf("url_bar"),
+        "com.brave.browser_beta" to listOf("url_bar"),
+        "com.brave.browser_nightly" to listOf("url_bar"),
+        // Samsung Internet
+        "com.sec.android.app.sbrowser" to listOf("location_bar_edit_text"),
+        // Microsoft Edge
+        "com.microsoft.emmx" to listOf("url_bar"),
+        // Opera variants
+        "com.opera.browser" to listOf("url_field"),
+        "com.opera.browser.beta" to listOf("url_field"),
+        "com.opera.mini.native" to listOf("url_field"),
+        "com.opera.mini.native.beta" to listOf("url_field"),
+        "com.opera.touch" to listOf("addressbarEdit"),
+        // Vivaldi
+        "com.vivaldi.browser" to listOf("url_bar"),
+        // Kiwi Browser
+        "com.kiwibrowser.browser" to listOf("url_bar"),
+        // DuckDuckGo
+        "com.duckduckgo.mobile.android" to listOf("omnibarTextInput"),
+        // Ecosia
+        "com.ecosia.android" to listOf("url_bar"),
+        // Huawei Browser
+        "com.huawei.browser" to listOf("url_bar"),
+        // Android system browser (AOSP)
+        "com.android.browser" to listOf("url"),
+        // Google Search app (in-app browser)
+        "com.google.android.googlequicksearchbox" to listOf("googleapp_srp_search_box_text"),
+    )
+
     private fun isSupportedBrowser(packageName: String): Boolean {
-        return packageName == "org.mozilla.firefox" ||
-                packageName == "org.mozilla.firefox_beta" ||
-                packageName == "org.mozilla.fenix" ||
-                packageName == "org.mozilla.fenix.nightly" ||
-                packageName == "org.mozilla.focus" ||
-                packageName == "com.android.chrome" ||
-                packageName == "com.brave.browser" ||
-                packageName == "com.brave.browser_beta" ||
-                packageName == "com.brave.browser_nightly" ||
-                packageName == "org.chromium.chrome"
+        return packageName in browserUrlViewIds
     }
 
     private fun navigateBrowserToBlank(browserPackage: String) {
@@ -140,18 +173,17 @@ class BlockerService : AccessibilityService() {
         val root = rootInActiveWindow ?: return null
         try {
             val pkg = event.packageName?.toString() ?: return null
-            val knownUrlViewIds = listOf(
-                "$pkg:id/mozac_browser_toolbar_url_view",
-                "$pkg:id/url_bar_title",
-                "$pkg:id/display_url",
-                "$pkg:id/url_bar"
-            )
+            val viewIds = browserUrlViewIds[pkg] ?: return null
+            val knownUrlViewIds = viewIds.map { "$pkg:id/$it" }
 
             for (viewId in knownUrlViewIds) {
                 val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
                 if (nodes.isNullOrEmpty()) continue
                 for (node in nodes) {
                     try {
+                        // Skip if the URL bar is focused — user is typing,
+                        // don't block on autocomplete suggestions
+                        if (node.isFocused) continue
                         val text = node.text?.toString()
                         if (text != null && isValidUrlFormat(text)) {
                             return text
