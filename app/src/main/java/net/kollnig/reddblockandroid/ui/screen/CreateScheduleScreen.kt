@@ -2,10 +2,13 @@ package net.kollnig.reddblockandroid.ui.screen
 
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -17,6 +20,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -24,6 +29,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.kollnig.reddblockandroid.R
@@ -31,13 +37,14 @@ import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
 import net.kollnig.reddblockandroid.schedule.ScheduleManager
 import net.kollnig.reddblockandroid.schedule.Schedules
+import net.kollnig.reddblockandroid.ui.theme.*
 import java.time.DayOfWeek
 import java.time.LocalTime
 import java.time.format.TextStyle
 import java.util.Locale
 import java.util.UUID
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun CreateScheduleScreen(
     scheduleId: String?,
@@ -125,6 +132,7 @@ fun CreateScheduleScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = {
@@ -145,11 +153,14 @@ fun CreateScheduleScreen(
                             Icon(
                                 Icons.Rounded.Delete,
                                 contentDescription = stringResource(R.string.delete),
-                                tint = MaterialTheme.colorScheme.error
+                                tint = SoftRed
                             )
                         }
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     ) { innerPadding ->
@@ -161,22 +172,173 @@ fun CreateScheduleScreen(
                 .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Name
+            // ── NAME section ──
+            SectionHeader(stringResource(R.string.schedule_name).uppercase())
             OutlinedTextField(
                 value = scheduleName,
                 onValueChange = { scheduleName = it },
-                label = { Text(stringResource(R.string.schedule_name)) },
+                placeholder = { Text(stringResource(R.string.schedule_name), color = TextHint) },
                 modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                singleLine = true
+                shape = RoundedCornerShape(12.dp),
+                singleLine = true,
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                    focusedContainerColor = MaterialTheme.colorScheme.surface
+                )
             )
 
-            // Schedule Type
-            Text(
-                stringResource(R.string.schedule_type),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            // ── WEBSITES section ──
+            SectionHeader(stringResource(R.string.blocked_websites).uppercase())
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(1.dp, RoundedCornerShape(12.dp)),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                    // Chip grid of blocked websites
+                    if (blockedWebsites.isNotEmpty()) {
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            blockedWebsites.forEach { domain ->
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = ChipGreen,
+                                    modifier = Modifier
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            domain,
+                                            style = MaterialTheme.typography.bodySmall,
+                                            fontWeight = FontWeight.Medium,
+                                            color = ChipGreenText
+                                        )
+                                        Icon(
+                                            Icons.Rounded.Close,
+                                            contentDescription = stringResource(R.string.remove),
+                                            modifier = Modifier
+                                                .size(14.dp)
+                                                .clickable { blockedWebsites = blockedWebsites - domain },
+                                            tint = ChipGreenText
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+
+                    // Add website inline
+                    var inlineWebsite by remember { mutableStateOf("") }
+                    OutlinedTextField(
+                        value = inlineWebsite,
+                        onValueChange = { inlineWebsite = it },
+                        placeholder = { Text(stringResource(R.string.website_placeholder), color = TextHint) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = {
+                            if (inlineWebsite.isNotBlank()) {
+                                blockedWebsites = (blockedWebsites + inlineWebsite.lowercase().trim()).distinct()
+                                inlineWebsite = ""
+                            }
+                        }),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            unfocusedContainerColor = SurfaceLight,
+                            focusedContainerColor = SurfaceLight
+                        )
+                    )
+                }
+            }
+
+            // ── APPS section ──
+            SectionHeader(stringResource(R.string.blocked_apps).uppercase())
+
+            // Cache app name lookups
+            val appNameCache = remember(blockedApps) {
+                blockedApps.associateWith { pkg ->
+                    try {
+                        context.packageManager.getApplicationLabel(
+                            context.packageManager.getApplicationInfo(pkg, 0)
+                        ).toString()
+                    } catch (_: PackageManager.NameNotFoundException) {
+                        pkg
+                    }
+                }
+            }
+
+            if (blockedApps.isNotEmpty()) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(1.dp, RoundedCornerShape(12.dp)),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column {
+                        blockedApps.forEachIndexed { index, pkg ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    appNameCache[pkg] ?: pkg,
+                                    modifier = Modifier.weight(1f),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    color = TextPrimary
+                                )
+                                IconButton(
+                                    onClick = { blockedApps = blockedApps - pkg },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Rounded.Close,
+                                        contentDescription = stringResource(R.string.remove),
+                                        modifier = Modifier.size(16.dp),
+                                        tint = TextHint
+                                    )
+                                }
+                            }
+                            if (index < blockedApps.lastIndex) {
+                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+                            }
+                        }
+                    }
+                }
+            }
+
+            Button(
+                onClick = { showAppPicker = true },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = DarkNavy,
+                    contentColor = White
+                )
+            ) {
+                Icon(Icons.Rounded.Apps, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.add_app), fontWeight = FontWeight.SemiBold)
+            }
+
+            // ── SCHEDULE TYPE section ──
+            SectionHeader(stringResource(R.string.schedule_type).uppercase())
 
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                 val types = ScheduleTiming.ScheduleType.entries
@@ -197,59 +359,82 @@ fun CreateScheduleScreen(
                 }
             }
 
-            // Time pickers (not for manual)
+            // ── Time pickers (not for manual) ──
             if (scheduleType != ScheduleTiming.ScheduleType.MANUAL) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    OutlinedCard(
+                    // Start time card
+                    Card(
                         onClick = { showStartTimePicker = true },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp)
+                        modifier = Modifier
+                            .weight(1f)
+                            .shadow(1.dp, RoundedCornerShape(12.dp)),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Column(modifier = Modifier.padding(14.dp)) {
                             Text(
-                                stringResource(R.string.start_time),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                stringResource(R.string.start_time).uppercase(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSecondary,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
                             )
-                            Text(
-                                selectedTime.toString(),
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Spacer(Modifier.height(4.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                TimeBox(String.format("%02d", selectedTime.hour))
+                                Text(":", fontWeight = FontWeight.Bold, color = TextSecondary)
+                                TimeBox(String.format("%02d", selectedTime.minute))
+                            }
                         }
                     }
 
-                    OutlinedCard(
-                        onClick = { showEndTimePicker = true },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp)
+                    // Arrow
+                    Box(
+                        modifier = Modifier.align(Alignment.CenterVertically).padding(top = 16.dp)
                     ) {
-                        Column(modifier = Modifier.padding(16.dp)) {
+                        Text("→", color = TextSecondary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    }
+
+                    // End time card
+                    Card(
+                        onClick = { showEndTimePicker = true },
+                        modifier = Modifier
+                            .weight(1f)
+                            .shadow(1.dp, RoundedCornerShape(12.dp)),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Column(modifier = Modifier.padding(14.dp)) {
                             Text(
-                                stringResource(R.string.end_time),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                stringResource(R.string.end_time).uppercase(),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextSecondary,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.5.sp
                             )
-                            Text(
-                                selectedEndTime.toString(),
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold
-                            )
+                            Spacer(Modifier.height(4.dp))
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                TimeBox(String.format("%02d", selectedEndTime.hour))
+                                Text(":", fontWeight = FontWeight.Bold, color = TextSecondary)
+                                TimeBox(String.format("%02d", selectedEndTime.minute))
+                            }
                         }
                     }
                 }
             }
 
-            // Day selector (weekly only)
+            // ── Day selector (weekly only) ──
             if (scheduleType == ScheduleTiming.ScheduleType.WEEKLY) {
-                Text(
-                    stringResource(R.string.days),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                SectionHeader(stringResource(R.string.days).uppercase())
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -257,40 +442,42 @@ fun CreateScheduleScreen(
                 ) {
                     DayOfWeek.entries.forEach { day ->
                         val isSelected = selectedDays.contains(day)
-                        FilterChip(
-                            selected = isSelected,
-                            onClick = {
-                                selectedDays = if (isSelected) selectedDays - day
-                                else selectedDays + day
-                            },
-                            label = {
+                        Surface(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(CircleShape)
+                                .clickable {
+                                    selectedDays = if (isSelected) selectedDays - day
+                                    else selectedDays + day
+                                },
+                            shape = CircleShape,
+                            color = if (isSelected) DayChipSelected else DayChipUnselected
+                        ) {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text(
                                     day.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
-                                    style = MaterialTheme.typography.labelSmall
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isSelected) White else TextSecondary
                                 )
-                            },
-                            modifier = Modifier.size(width = 42.dp, height = 36.dp)
-                        )
+                            }
+                        }
                     }
                 }
             }
 
-            // Friction Settings
-            Text(
-                stringResource(R.string.friction_settings),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
+            // ── FRICTION SETTINGS section ──
+            SectionHeader(stringResource(R.string.friction_settings).uppercase())
 
             // Friction word count
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                )
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(1.dp, RoundedCornerShape(12.dp)),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(14.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -298,13 +485,14 @@ fun CreateScheduleScreen(
                     ) {
                         Text(
                             stringResource(R.string.friction_word_count),
-                            style = MaterialTheme.typography.bodyMedium
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextPrimary
                         )
                         Text(
                             "$frictionWordCount",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.primary
+                            color = IndigoPrimary
                         )
                     }
                     Slider(
@@ -312,28 +500,33 @@ fun CreateScheduleScreen(
                         onValueChange = { frictionWordCount = it.toInt() },
                         valueRange = 1f..50f,
                         steps = 48,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = SliderDefaults.colors(
+                            thumbColor = IndigoPrimary,
+                            activeTrackColor = IndigoPrimary
+                        )
                     )
                     Text(
                         stringResource(R.string.friction_word_count_desc),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = TextHint
                     )
                 }
             }
 
             // Auto re-enable
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-                )
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(1.dp, RoundedCornerShape(12.dp)),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
+                Column(modifier = Modifier.padding(14.dp)) {
                     Text(
                         stringResource(R.string.auto_reenable),
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextPrimary
                     )
                     Spacer(Modifier.height(8.dp))
                     var expanded by remember { mutableStateOf(false) }
@@ -349,7 +542,12 @@ fun CreateScheduleScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .menuAnchor(),
-                            shape = RoundedCornerShape(12.dp)
+                            shape = RoundedCornerShape(10.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedContainerColor = SurfaceLight,
+                                focusedContainerColor = SurfaceLight
+                            )
                         )
                         ExposedDropdownMenu(
                             expanded = expanded,
@@ -370,129 +568,26 @@ fun CreateScheduleScreen(
                     Text(
                         stringResource(R.string.auto_reenable_desc),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = TextHint
                     )
                 }
             }
 
-            // Blocked Apps
-            Text(
-                stringResource(R.string.blocked_apps),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            // Cache app name lookups to avoid IPC on every recomposition
-            val appNameCache = remember(blockedApps) {
-                blockedApps.associateWith { pkg ->
-                    try {
-                        context.packageManager.getApplicationLabel(
-                            context.packageManager.getApplicationInfo(pkg, 0)
-                        ).toString()
-                    } catch (_: PackageManager.NameNotFoundException) {
-                        pkg
-                    }
-                }
-            }
-
-            blockedApps.forEach { pkg ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            appNameCache[pkg] ?: pkg,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        IconButton(
-                            onClick = { blockedApps = blockedApps - pkg },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Rounded.Close,
-                                contentDescription = stringResource(R.string.remove),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            OutlinedButton(
-                onClick = { showAppPicker = true },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.add_app))
-            }
-
-            // Blocked Websites
-            Text(
-                stringResource(R.string.blocked_websites),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold
-            )
-
-            blockedWebsites.forEach { domain ->
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            domain,
-                            modifier = Modifier.weight(1f),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        IconButton(
-                            onClick = { blockedWebsites = blockedWebsites - domain },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                Icons.Rounded.Close,
-                                contentDescription = stringResource(R.string.remove),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-            }
-
-            OutlinedButton(
-                onClick = { showWebsiteDialog = true },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Icon(Icons.Rounded.Add, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.add_website))
-            }
-
-            // Save button
+            // ── Save button ──
             Button(
                 onClick = { saveSchedule() },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
+                    .height(52.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = DarkNavy,
+                    contentColor = White
+                ),
                 enabled = scheduleName.isNotBlank()
             ) {
+                Icon(Icons.Rounded.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(
                     stringResource(R.string.save),
                     style = MaterialTheme.typography.titleMedium,
@@ -539,24 +634,11 @@ fun CreateScheduleScreen(
         )
     }
 
-    // Website dialog
-    if (showWebsiteDialog) {
-        WebsiteInputDialog(
-            onAdd = { domain ->
-                if (domain.isNotBlank()) {
-                    blockedWebsites = (blockedWebsites + domain.lowercase().trim()).distinct()
-                }
-                showWebsiteDialog = false
-            },
-            onDismiss = { showWebsiteDialog = false }
-        )
-    }
-
     // Delete dialog
     if (showDeleteDialog && existingSchedule != null) {
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
-            title = { Text(stringResource(R.string.delete_schedule)) },
+            title = { Text(stringResource(R.string.delete_schedule), fontWeight = FontWeight.Bold) },
             text = { Text(stringResource(R.string.delete_schedule_confirm, existingSchedule.name)) },
             confirmButton = {
                 TextButton(onClick = {
@@ -567,7 +649,8 @@ fun CreateScheduleScreen(
                 }) {
                     Text(
                         stringResource(R.string.delete),
-                        color = MaterialTheme.colorScheme.error
+                        color = SoftRed,
+                        fontWeight = FontWeight.Bold
                     )
                 }
             },
@@ -576,6 +659,36 @@ fun CreateScheduleScreen(
                     Text(stringResource(R.string.cancel))
                 }
             }
+        )
+    }
+}
+
+// ── Reusable Components ──
+
+@Composable
+private fun SectionHeader(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelMedium,
+        fontWeight = FontWeight.Bold,
+        color = TextSecondary,
+        letterSpacing = 1.sp,
+        modifier = Modifier.padding(top = 4.dp)
+    )
+}
+
+@Composable
+private fun TimeBox(value: String) {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = CoolGrey
+    ) {
+        Text(
+            value,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary
         )
     }
 }
@@ -619,10 +732,8 @@ private fun AppPickerDialog(
 ) {
     val context = LocalContext.current
     var installedApps by remember { mutableStateOf<List<ApplicationInfo>?>(null) }
-    // Cache labels to avoid repeated IPC calls
     var labelCache by remember { mutableStateOf<Map<String, String>>(emptyMap()) }
 
-    // Load apps asynchronously on a background thread
     LaunchedEffect(alreadySelected) {
         val (apps, labels) = withContext(Dispatchers.IO) {
             val allApps = context.packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
@@ -654,7 +765,7 @@ private fun AppPickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.select_apps)) },
+        title = { Text(stringResource(R.string.select_apps), fontWeight = FontWeight.Bold) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
@@ -662,7 +773,7 @@ private fun AppPickerDialog(
                     onValueChange = { searchQuery = it },
                     placeholder = { Text(stringResource(R.string.search_apps)) },
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(10.dp),
                     singleLine = true,
                     leadingIcon = {
                         Icon(Icons.Rounded.Search, contentDescription = null)
@@ -670,14 +781,13 @@ private fun AppPickerDialog(
                 )
                 Spacer(Modifier.height(8.dp))
                 if (filteredApps == null) {
-                    // Show loading spinner while apps load on background thread
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(200.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator()
+                        CircularProgressIndicator(color = IndigoPrimary)
                     }
                 } else {
                     LazyColumn(
@@ -701,7 +811,10 @@ private fun AppPickerDialog(
                                     onCheckedChange = {
                                         if (isChecked) selected.remove(appInfo.packageName)
                                         else selected.add(appInfo.packageName)
-                                    }
+                                    },
+                                    colors = CheckboxDefaults.colors(
+                                        checkedColor = IndigoPrimary
+                                    )
                                 )
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
@@ -713,7 +826,7 @@ private fun AppPickerDialog(
                                     Text(
                                         appInfo.packageName,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = TextHint,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
@@ -729,47 +842,7 @@ private fun AppPickerDialog(
                 onClick = { onAppsSelected(selected.toList()) },
                 enabled = selected.isNotEmpty()
             ) {
-                Text(stringResource(R.string.add_selected, selected.size))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.cancel))
-            }
-        }
-    )
-}
-
-@Composable
-private fun WebsiteInputDialog(
-    onAdd: (String) -> Unit,
-    onDismiss: () -> Unit
-) {
-    var domain by remember { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.add_website)) },
-        text = {
-            OutlinedTextField(
-                value = domain,
-                onValueChange = { domain = it },
-                placeholder = { Text(stringResource(R.string.website_placeholder)) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = {
-                    if (domain.isNotBlank()) onAdd(domain)
-                })
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = { onAdd(domain) },
-                enabled = domain.isNotBlank()
-            ) {
-                Text(stringResource(R.string.add))
+                Text(stringResource(R.string.add_selected, selected.size), fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {

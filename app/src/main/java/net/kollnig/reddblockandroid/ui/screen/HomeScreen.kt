@@ -1,5 +1,6 @@
 package net.kollnig.reddblockandroid.ui.screen
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -7,21 +8,24 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.automirrored.rounded.EventNote
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import net.kollnig.reddblockandroid.R
 import net.kollnig.reddblockandroid.schedule.Schedules
+import net.kollnig.reddblockandroid.ui.theme.*
 import net.kollnig.reddblockandroid.util.hasNotificationPermission
 import net.kollnig.reddblockandroid.util.isAccessibilityServiceEnabled
 import net.kollnig.reddblockandroid.util.isBatteryOptimizationDisabled
@@ -54,16 +58,7 @@ fun HomeScreen(
     val activeSessionCount = remember { Schedules.getActiveSessions().size }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        stringResource(R.string.app_name),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            )
-        }
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -73,16 +68,18 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(16.dp))
 
-            // Status card
+            // ── Status card ──
             if (!isAccessibilityEnabled) {
                 Card(
                     onClick = onNavigateToPermissions,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(4.dp, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.errorContainer
+                        containerColor = SoftRedBg
                     )
                 ) {
                     Row(
@@ -93,47 +90,49 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Surface(
-                            modifier = Modifier.size(48.dp),
+                            modifier = Modifier.size(40.dp),
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.error.copy(alpha = 0.2f)
+                            color = SoftRed.copy(alpha = 0.15f)
                         ) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Icon(
                                     Icons.Rounded.Warning,
                                     contentDescription = null,
-                                    modifier = Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.onErrorContainer
+                                    modifier = Modifier.size(20.dp),
+                                    tint = SoftRed
                                 )
                             }
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 stringResource(R.string.setup_required),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onErrorContainer
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
                             )
                             Text(
                                 stringResource(R.string.setup_required_desc),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onErrorContainer.copy(alpha = 0.8f)
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary
                             )
                         }
                         Icon(
                             Icons.AutoMirrored.Rounded.ArrowForward,
                             contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.onErrorContainer
+                            modifier = Modifier.size(18.dp),
+                            tint = TextSecondary
                         )
                     }
                 }
                 Spacer(Modifier.height(16.dp))
             } else {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(4.dp, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                        containerColor = MaterialTheme.colorScheme.surface
                     )
                 ) {
                     Row(
@@ -144,33 +143,33 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Surface(
-                            modifier = Modifier.size(48.dp),
+                            modifier = Modifier.size(40.dp),
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                            color = BadgeGreen.copy(alpha = 0.15f)
                         ) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Icon(
                                     Icons.Rounded.CheckCircle,
                                     contentDescription = null,
-                                    modifier = Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                    modifier = Modifier.size(20.dp),
+                                    tint = BadgeGreen
                                 )
                             }
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 stringResource(R.string.protection_active),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
                             )
                             Text(
                                 if (activeSessionCount > 0)
                                     stringResource(R.string.schedules_active_count, activeSessionCount)
                                 else
                                     stringResource(R.string.no_active_schedules),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.8f)
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary
                             )
                         }
                     }
@@ -178,13 +177,43 @@ fun HomeScreen(
                 Spacer(Modifier.height(16.dp))
             }
 
-            // Schedules card
+            // ── YOUR BLOCKLISTS section header ──
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    stringResource(R.string.your_blocklists),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = TextSecondary,
+                    letterSpacing = 1.sp
+                )
+                IconButton(
+                    onClick = onNavigateToSchedules,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Add,
+                        contentDescription = stringResource(R.string.create_schedule),
+                        modifier = Modifier.size(20.dp),
+                        tint = TextSecondary
+                    )
+                }
+            }
+
+            // ── Schedules card ──
             Card(
                 onClick = onNavigateToSchedules,
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(24.dp),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(2.dp, RoundedCornerShape(16.dp)),
+                shape = RoundedCornerShape(16.dp),
                 colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+                    containerColor = MaterialTheme.colorScheme.surface
                 )
             ) {
                 Row(
@@ -195,43 +224,47 @@ fun HomeScreen(
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Surface(
-                        modifier = Modifier.size(48.dp),
+                        modifier = Modifier.size(40.dp),
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer
+                        color = IndigoPrimary.copy(alpha = 0.1f)
                     ) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Icon(
-                                Icons.AutoMirrored.Rounded.EventNote,
+                                Icons.Rounded.Block,
                                 contentDescription = null,
-                                modifier = Modifier.size(24.dp),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                modifier = Modifier.size(20.dp),
+                                tint = IndigoPrimary
                             )
                         }
                     }
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
                             stringResource(R.string.schedules),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = TextPrimary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             stringResource(R.string.schedules_desc),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                     Surface(
-                        modifier = Modifier.size(36.dp),
+                        modifier = Modifier.size(32.dp),
                         shape = CircleShape,
-                        color = MaterialTheme.colorScheme.primaryContainer
+                        color = CoolGrey
                     ) {
                         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Icon(
                                 Icons.AutoMirrored.Rounded.ArrowForward,
                                 contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onPrimaryContainer
+                                modifier = Modifier.size(16.dp),
+                                tint = TextSecondary
                             )
                         }
                     }
@@ -240,14 +273,16 @@ fun HomeScreen(
 
             Spacer(Modifier.height(12.dp))
 
-            // Permissions card — hidden when all permissions are granted
+            // ── Permissions card — hidden when all permissions are granted ──
             if (!allPermissionsGranted) {
                 Card(
                     onClick = onNavigateToPermissions,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(24.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(2.dp, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainer
+                        containerColor = MaterialTheme.colorScheme.surface
                     )
                 ) {
                     Row(
@@ -258,43 +293,43 @@ fun HomeScreen(
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         Surface(
-                            modifier = Modifier.size(48.dp),
+                            modifier = Modifier.size(40.dp),
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.secondaryContainer
+                            color = SlateBlue.copy(alpha = 0.1f)
                         ) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Icon(
                                     Icons.Rounded.Security,
                                     contentDescription = null,
-                                    modifier = Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                    modifier = Modifier.size(20.dp),
+                                    tint = SlateBlue
                                 )
                             }
                         }
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
                                 stringResource(R.string.permissions),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = TextPrimary
                             )
                             Text(
                                 stringResource(R.string.permissions_desc),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextSecondary
                             )
                         }
                         Surface(
-                            modifier = Modifier.size(36.dp),
+                            modifier = Modifier.size(32.dp),
                             shape = CircleShape,
-                            color = MaterialTheme.colorScheme.secondaryContainer
+                            color = CoolGrey
                         ) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Icon(
                                     Icons.AutoMirrored.Rounded.ArrowForward,
                                     contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.onSecondaryContainer
+                                    modifier = Modifier.size(16.dp),
+                                    tint = TextSecondary
                                 )
                             }
                         }
@@ -302,7 +337,21 @@ fun HomeScreen(
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
+            // ── Footer ──
+            Spacer(Modifier.weight(1f))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    stringResource(R.string.footer_text),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = TextHint
+                )
+            }
         }
     }
 }

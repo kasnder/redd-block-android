@@ -101,6 +101,22 @@
     <string name="schedule_deactivated">Schedule Ended</string>
     <string name="schedule_deactivated_desc">%s has been deactivated</string>
 
+    <!-- Section headers (iOS-style) -->
+    <string name="your_blocklists">YOUR BLOCKLISTS</string>
+    <string name="start_a_block">START A BLOCK</string>
+    <string name="schedule_section">SCHEDULE</string>
+    <string name="always_badge">ALWAYS</string>
+    <string name="now_label">Now</string>
+    <string name="schedule_label">Schedule</string>
+    <string name="override_title">Override %s?</string>
+    <string name="override_description">Blocks %1$d websites (%2$s)</string>
+    <string name="override_instruction">To cancel this block early, type the following:</string>
+    <string name="override_button">Override</string>
+    <string name="type_here_hint">Type here…</string>
+    <string name="footer_text">Made with ❤\uFE0F by reddfocus.org</string>
+    <string name="items_summary">%1$d websites (%2$s)</string>
+    <string name="start_schedule_button">Start schedule: %s</string>
+
     <!-- Accessibility Service config -->
     <string name="accessibility_service_label">ReDD Block</string>
     <string name="accessibility_service_summary">Monitors app launches and browser navigation to enforce blocking schedules.</string>

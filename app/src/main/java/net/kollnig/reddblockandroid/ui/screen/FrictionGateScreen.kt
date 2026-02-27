@@ -1,6 +1,5 @@
 package net.kollnig.reddblockandroid.ui.screen
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,15 +13,19 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import net.kollnig.reddblockandroid.R
+import net.kollnig.reddblockandroid.ui.theme.*
 
 // Common English words for the friction gate
 private val WORD_LIST = listOf(
@@ -61,6 +64,9 @@ fun FrictionGateScreen(
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
+    // Build the challenge phrase (all remaining words)
+    val challengePhrase = remember { words.joinToString(" ") }
+
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboardController?.show()
@@ -81,6 +87,7 @@ fun FrictionGateScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = {
@@ -93,7 +100,10 @@ fun FrictionGateScreen(
                     IconButton(onClick = onBackPressed) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     ) { innerPadding ->
@@ -102,99 +112,157 @@ fun FrictionGateScreen(
                 .fillMaxSize()
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
+                .padding(horizontal = 20.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(8.dp))
 
             // Progress indicator
             LinearProgressIndicator(
                 progress = { (currentWordIndex.toFloat()) / words.size },
                 modifier = Modifier.fillMaxWidth(),
-                trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                trackColor = DayChipUnselected,
+                color = IndigoPrimary,
             )
 
             Text(
                 stringResource(R.string.friction_gate_progress, currentWordIndex + 1, words.size),
                 style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = TextSecondary
             )
 
-            Spacer(Modifier.height(8.dp))
-
-            // Explanation
-            Icon(
-                Icons.Rounded.Lock,
-                contentDescription = null,
-                modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.primary
-            )
-
-            Text(
-                stringResource(R.string.friction_gate_desc),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(Modifier.height(8.dp))
-
-            // Word to type
+            // ── Override card (iOS-style dialog look) ──
             Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer
-                )
-            ) {
-                Text(
-                    words[currentWordIndex],
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    style = MaterialTheme.typography.headlineMedium,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-
-            // Input field
-            OutlinedTextField(
-                value = userInput,
-                onValueChange = {
-                    userInput = it
-                    isError = false
-                },
-                label = { Text(stringResource(R.string.friction_gate_input_label)) },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .focusRequester(focusRequester),
+                    .shadow(4.dp, RoundedCornerShape(16.dp)),
                 shape = RoundedCornerShape(16.dp),
-                singleLine = true,
-                isError = isError,
-                supportingText = if (isError) {
-                    { Text(stringResource(R.string.friction_gate_error)) }
-                } else null,
-                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { checkWord() })
-            )
-
-            Button(
-                onClick = { checkWord() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = RoundedCornerShape(16.dp),
-                enabled = userInput.isNotBlank()
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
-                Text(
-                    if (currentWordIndex >= words.lastIndex) stringResource(R.string.friction_gate_finish)
-                    else stringResource(R.string.friction_gate_next),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Column(
+                    modifier = Modifier.padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Title
+                    Text(
+                        stringResource(R.string.friction_gate_title),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+
+                    // Instruction
+                    Text(
+                        stringResource(R.string.override_instruction),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary
+                    )
+
+                    // Challenge phrase in monospace code block
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        color = CoolGrey
+                    ) {
+                        Text(
+                            challengePhrase,
+                            modifier = Modifier.padding(14.dp),
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 14.sp,
+                            lineHeight = 22.sp,
+                            color = TextPrimary
+                        )
+                    }
+
+                    // Current word highlight
+                    Text(
+                        stringResource(R.string.friction_gate_progress, currentWordIndex + 1, words.size),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextHint
+                    )
+
+                    // Word to type
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        color = IndigoPrimary.copy(alpha = 0.08f)
+                    ) {
+                        Text(
+                            words[currentWordIndex],
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            style = MaterialTheme.typography.headlineSmall,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center,
+                            color = IndigoPrimary
+                        )
+                    }
+
+                    // Input field
+                    OutlinedTextField(
+                        value = userInput,
+                        onValueChange = {
+                            userInput = it
+                            isError = false
+                        },
+                        placeholder = { Text(stringResource(R.string.type_here_hint), color = TextHint) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(focusRequester),
+                        shape = RoundedCornerShape(10.dp),
+                        singleLine = true,
+                        isError = isError,
+                        supportingText = if (isError) {
+                            { Text(stringResource(R.string.friction_gate_error)) }
+                        } else null,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { checkWord() }),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            unfocusedContainerColor = SurfaceLight,
+                            focusedContainerColor = SurfaceLight
+                        )
+                    )
+
+                    // Buttons row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = onBackPressed,
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = TextPrimary
+                            )
+                        ) {
+                            Text(
+                                stringResource(R.string.cancel),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        Button(
+                            onClick = { checkWord() },
+                            modifier = Modifier.weight(1f).height(48.dp),
+                            shape = RoundedCornerShape(10.dp),
+                            enabled = userInput.isNotBlank(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = DarkNavy,
+                                contentColor = White
+                            )
+                        ) {
+                            Text(
+                                if (currentWordIndex >= words.lastIndex) stringResource(R.string.override_button)
+                                else stringResource(R.string.friction_gate_next),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
             }
 
             Spacer(Modifier.height(32.dp))

@@ -2,7 +2,6 @@ package net.kollnig.reddblockandroid.ui.screen
 
 import android.content.Intent
 import android.net.Uri
-import android.os.PowerManager
 import android.provider.Settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -16,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import net.kollnig.reddblockandroid.R
+import net.kollnig.reddblockandroid.ui.theme.*
 import net.kollnig.reddblockandroid.util.hasNotificationPermission
 import net.kollnig.reddblockandroid.util.isAccessibilityServiceEnabled
 import net.kollnig.reddblockandroid.util.isBatteryOptimizationDisabled
@@ -38,7 +39,6 @@ fun PermissionsScreen(
     var notificationEnabled by remember { mutableStateOf(context.hasNotificationPermission()) }
     var batteryOptDisabled by remember { mutableStateOf(context.isBatteryOptimizationDisabled()) }
 
-    // Refresh permissions when returning from settings (on every resume)
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -53,6 +53,7 @@ fun PermissionsScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = {
@@ -65,7 +66,10 @@ fun PermissionsScreen(
                     IconButton(onClick = onBackPressed) {
                         Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
-                }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
             )
         }
     ) { innerPadding ->
@@ -75,12 +79,12 @@ fun PermissionsScreen(
                 .padding(innerPadding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             Text(
                 stringResource(R.string.permissions_info),
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = TextSecondary
             )
 
             Spacer(Modifier.height(4.dp))
@@ -139,46 +143,48 @@ private fun PermissionCard(
 ) {
     Card(
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(2.dp, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = if (isGranted)
-                MaterialTheme.colorScheme.surfaceContainerHigh
+                MaterialTheme.colorScheme.surface
             else if (isRequired)
-                MaterialTheme.colorScheme.errorContainer
+                SoftRedBg
             else
-                MaterialTheme.colorScheme.surfaceContainer
+                MaterialTheme.colorScheme.surface
         )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(14.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Surface(
-                modifier = Modifier.size(44.dp),
+                modifier = Modifier.size(40.dp),
                 shape = CircleShape,
                 color = if (isGranted)
-                    MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+                    BadgeGreen.copy(alpha = 0.12f)
                 else if (isRequired)
-                    MaterialTheme.colorScheme.error.copy(alpha = 0.2f)
+                    SoftRed.copy(alpha = 0.12f)
                 else
-                    MaterialTheme.colorScheme.surfaceContainerHighest
+                    CoolGrey
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Icon(
                         if (isGranted) Icons.Rounded.CheckCircle
                         else Icons.Rounded.RadioButtonUnchecked,
                         contentDescription = null,
-                        modifier = Modifier.size(22.dp),
+                        modifier = Modifier.size(20.dp),
                         tint = if (isGranted)
-                            MaterialTheme.colorScheme.primary
+                            BadgeGreen
                         else if (isRequired)
-                            MaterialTheme.colorScheme.error
+                            SoftRed
                         else
-                            MaterialTheme.colorScheme.onSurfaceVariant
+                            TextHint
                     )
                 }
             }
@@ -187,20 +193,22 @@ private fun PermissionCard(
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         title,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextPrimary
                     )
                     if (isRequired && !isGranted) {
                         Spacer(Modifier.width(8.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.error
+                            color = SoftRed
                         ) {
                             Text(
                                 stringResource(R.string.required),
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onError
+                                color = White,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
@@ -208,7 +216,7 @@ private fun PermissionCard(
                 Text(
                     description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = TextSecondary
                 )
             }
         }

@@ -1,6 +1,7 @@
 package net.kollnig.reddblockandroid.ui.screen
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -13,11 +14,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -27,6 +30,7 @@ import net.kollnig.reddblockandroid.R
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
 import net.kollnig.reddblockandroid.schedule.Schedules
+import net.kollnig.reddblockandroid.ui.theme.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +45,6 @@ fun SchedulesScreen(
     val activeSessions = remember { mutableStateOf(Schedules.getActiveSessions()) }
 
     fun refreshSchedules() {
-        // Auto-reenable any schedules whose disabledUntil has expired
         val now = System.currentTimeMillis()
         for (schedule in Schedules.getAll()) {
             val until = schedule.disabledUntil
@@ -53,7 +56,6 @@ fun SchedulesScreen(
         activeSessions.value = Schedules.getActiveSessions()
     }
 
-    // Refresh on every resume so back-navigation always shows fresh state
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -66,6 +68,7 @@ fun SchedulesScreen(
     }
 
     Scaffold(
+            containerColor = MaterialTheme.colorScheme.background,
             topBar = {
                 TopAppBar(
                         title = {
@@ -78,11 +81,18 @@ fun SchedulesScreen(
                                         contentDescription = stringResource(R.string.back)
                                 )
                             }
-                        }
+                        },
+                        colors = TopAppBarDefaults.topAppBarColors(
+                            containerColor = MaterialTheme.colorScheme.background
+                        )
                 )
             },
             floatingActionButton = {
-                FloatingActionButton(onClick = onCreateSchedule) {
+                FloatingActionButton(
+                    onClick = onCreateSchedule,
+                    containerColor = DarkNavy,
+                    contentColor = White
+                ) {
                     Icon(
                             Icons.Rounded.Add,
                             contentDescription = stringResource(R.string.create_schedule)
@@ -103,17 +113,17 @@ fun SchedulesScreen(
                             Icons.Rounded.EventBusy,
                             contentDescription = null,
                             modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                            tint = TextHint
                     )
                     Text(
                             stringResource(R.string.no_schedules),
                             style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color = TextSecondary
                     )
                     Text(
                             stringResource(R.string.no_schedules_desc),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            color = TextHint
                     )
                 }
             }
@@ -121,8 +131,19 @@ fun SchedulesScreen(
             LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(innerPadding),
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
+                // Section header
+                item {
+                    Text(
+                        stringResource(R.string.your_blocklists),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = TextSecondary,
+                        letterSpacing = 1.sp,
+                        modifier = Modifier.padding(bottom = 4.dp)
+                    )
+                }
                 items(schedules, key = { it.id }) { schedule ->
                     val isActive = activeSessions.value.any { it.scheduleId == schedule.id }
                     ScheduleItem(
@@ -130,7 +151,6 @@ fun SchedulesScreen(
                             isActive = isActive,
                             onClick = {
                                 if (isActive) {
-                                    // Friction gate needed before editing active schedule
                                     onFrictionGateRequired(schedule) { onEditSchedule(schedule) }
                                 } else {
                                     onEditSchedule(schedule)
@@ -138,7 +158,6 @@ fun SchedulesScreen(
                             },
                             onToggle = {
                                 if (isActive) {
-                                    // Friction gate needed before disabling active schedule
                                     onFrictionGateRequired(schedule) {
                                         Schedules.toggle(schedule.id, context)
                                         refreshSchedules()
@@ -146,6 +165,13 @@ fun SchedulesScreen(
                                 } else {
                                     Schedules.toggle(schedule.id, context)
                                     refreshSchedules()
+                                }
+                            },
+                            onEdit = {
+                                if (isActive) {
+                                    onFrictionGateRequired(schedule) { onEditSchedule(schedule) }
+                                } else {
+                                    onEditSchedule(schedule)
                                 }
                             }
                     )
@@ -160,72 +186,106 @@ private fun ScheduleItem(
         schedule: Schedule,
         isActive: Boolean,
         onClick: () -> Unit,
-        onToggle: () -> Unit
+        onToggle: () -> Unit,
+        onEdit: () -> Unit
 ) {
     val containerColor by
             animateColorAsState(
                     targetValue =
-                            if (isActive) MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.surfaceContainerHigh,
+                            if (isActive) MaterialTheme.colorScheme.surface
+                            else MaterialTheme.colorScheme.surface,
                     label = "containerColor"
             )
 
+    val borderColor = if (isActive) IndigoPrimary.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outlineVariant
+
     Card(
             onClick = onClick,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = containerColor)
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(2.dp, RoundedCornerShape(16.dp)),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = containerColor),
+            border = if (isActive) BorderStroke(1.5.dp, IndigoPrimary.copy(alpha = 0.4f)) else null
     ) {
         Row(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier.fillMaxWidth().padding(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
+            // Emoji/icon circle
             Surface(
-                    modifier = Modifier.size(44.dp),
+                    modifier = Modifier.size(40.dp),
                     shape = CircleShape,
-                    color =
-                            if (isActive) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
-                            else MaterialTheme.colorScheme.surfaceContainerHighest
+                    color = if (isActive) IndigoPrimary.copy(alpha = 0.1f) else CoolGrey
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Icon(
-                            if (isActive) Icons.Rounded.PlayArrow else Icons.Rounded.Schedule,
-                            contentDescription = null,
-                            modifier = Modifier.size(22.dp),
-                            tint =
-                                    if (isActive) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                    Text(
+                        "🚫",
+                        fontSize = 18.sp
                     )
                 }
             }
 
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                        schedule.name,
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color =
-                                if (isActive) MaterialTheme.colorScheme.onPrimaryContainer
-                                else MaterialTheme.colorScheme.onSurface
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                            schedule.name,
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            color = TextPrimary
+                    )
+                    if (isActive) {
+                        Spacer(Modifier.width(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = BadgeGreen.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                stringResource(R.string.always_badge),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = BadgeGreen,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
                 Text(
                         buildScheduleDescription(schedule),
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color =
-                                if (isActive)
-                                        MaterialTheme.colorScheme.onPrimaryContainer.copy(
-                                                alpha = 0.7f
-                                        )
-                                else MaterialTheme.colorScheme.onSurfaceVariant
+                        color = TextSecondary
                 )
             }
 
-            Switch(checked = schedule.isEnabled, onCheckedChange = { onToggle() })
+            // Edit button
+            IconButton(
+                onClick = onEdit,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    Icons.Rounded.Edit,
+                    contentDescription = stringResource(R.string.edit_schedule),
+                    modifier = Modifier.size(16.dp),
+                    tint = TextHint
+                )
+            }
+
+            Switch(
+                checked = schedule.isEnabled,
+                onCheckedChange = { onToggle() },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = White,
+                    checkedTrackColor = IndigoPrimary,
+                    uncheckedThumbColor = White,
+                    uncheckedTrackColor = DayChipUnselected
+                )
+            )
         }
     }
 }
@@ -262,7 +322,12 @@ private fun buildScheduleDescription(schedule: Schedule): String {
 
     val blockCount = schedule.blockedApps.size + schedule.blockedWebsites.size
     if (blockCount > 0) {
-        parts.add(stringResource(R.string.blocked_items_count, blockCount))
+        if (schedule.blockedWebsites.isNotEmpty()) {
+            val websiteList = schedule.blockedWebsites.take(3).joinToString(", ")
+            parts.add("$blockCount blocked ($websiteList)")
+        } else {
+            parts.add(stringResource(R.string.blocked_items_count, blockCount))
+        }
     }
 
     return parts.joinToString(" • ")
