@@ -1,6 +1,8 @@
 package net.kollnig.reddblockandroid.ui.screen
 
-import androidx.compose.foundation.background
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -23,7 +25,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import java.time.format.TextStyle
+import java.util.Locale
 import net.kollnig.reddblockandroid.R
+import net.kollnig.reddblockandroid.data.Schedule
+import net.kollnig.reddblockandroid.data.ScheduleTiming
 import net.kollnig.reddblockandroid.schedule.Schedules
 import net.kollnig.reddblockandroid.ui.theme.*
 import net.kollnig.reddblockandroid.util.hasNotificationPermission
@@ -33,13 +39,30 @@ import net.kollnig.reddblockandroid.util.isBatteryOptimizationDisabled
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onNavigateToSchedules: () -> Unit,
-    onNavigateToPermissions: () -> Unit
+    onNavigateToPermissions: () -> Unit,
+    onCreateSchedule: () -> Unit,
+    onEditSchedule: (Schedule) -> Unit,
+    onFrictionGateRequired: (Schedule, () -> Unit) -> Unit
 ) {
     val context = LocalContext.current
     var isAccessibilityEnabled by remember { mutableStateOf(context.isAccessibilityServiceEnabled()) }
     var hasNotifications by remember { mutableStateOf(context.hasNotificationPermission()) }
     var hasBatteryOpt by remember { mutableStateOf(context.isBatteryOptimizationDisabled()) }
+
+    var schedules by remember { mutableStateOf(Schedules.getAll()) }
+    var activeSessions by remember { mutableStateOf(Schedules.getActiveSessions()) }
+
+    fun refreshSchedules() {
+        val now = System.currentTimeMillis()
+        for (schedule in Schedules.getAll()) {
+            val until = schedule.disabledUntil
+            if (!schedule.isEnabled && until != null && until <= now) {
+                Schedules.reEnableSchedule(context, schedule.id)
+            }
+        }
+        schedules = Schedules.getAll()
+        activeSessions = Schedules.getActiveSessions()
+    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -48,6 +71,7 @@ fun HomeScreen(
                 isAccessibilityEnabled = context.isAccessibilityServiceEnabled()
                 hasNotifications = context.hasNotificationPermission()
                 hasBatteryOpt = context.isBatteryOptimizationDisabled()
+                refreshSchedules()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -55,7 +79,6 @@ fun HomeScreen(
     }
 
     val allPermissionsGranted = isAccessibilityEnabled && hasNotifications && hasBatteryOpt
-    val activeSessionCount = remember { Schedules.getActiveSessions().size }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background
@@ -78,9 +101,7 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .shadow(4.dp, RoundedCornerShape(16.dp)),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = SoftRedBg
-                    )
+                    colors = CardDefaults.cardColors(containerColor = SoftRedBg)
                 ) {
                     Row(
                         modifier = Modifier
@@ -125,56 +146,6 @@ fun HomeScreen(
                     }
                 }
                 Spacer(Modifier.height(16.dp))
-            } else {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(4.dp, RoundedCornerShape(16.dp)),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Surface(
-                            modifier = Modifier.size(40.dp),
-                            shape = CircleShape,
-                            color = BadgeGreen.copy(alpha = 0.15f)
-                        ) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Rounded.CheckCircle,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = BadgeGreen
-                                )
-                            }
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                stringResource(R.string.protection_active),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                            Text(
-                                if (activeSessionCount > 0)
-                                    stringResource(R.string.schedules_active_count, activeSessionCount)
-                                else
-                                    stringResource(R.string.no_active_schedules),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextSecondary
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.height(16.dp))
             }
 
             // ── YOUR BLOCKLISTS section header ──
@@ -193,7 +164,7 @@ fun HomeScreen(
                     letterSpacing = 1.sp
                 )
                 IconButton(
-                    onClick = onNavigateToSchedules,
+                    onClick = onCreateSchedule,
                     modifier = Modifier.size(28.dp)
                 ) {
                     Icon(
@@ -205,137 +176,78 @@ fun HomeScreen(
                 }
             }
 
-            // ── Schedules card ──
-            Card(
-                onClick = onNavigateToSchedules,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(2.dp, RoundedCornerShape(16.dp)),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Surface(
-                        modifier = Modifier.size(40.dp),
-                        shape = CircleShape,
-                        color = IndigoPrimary.copy(alpha = 0.1f)
-                    ) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Rounded.Block,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp),
-                                tint = IndigoPrimary
-                            )
-                        }
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            stringResource(R.string.schedules),
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = TextPrimary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            stringResource(R.string.schedules_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    Surface(
-                        modifier = Modifier.size(32.dp),
-                        shape = CircleShape,
-                        color = CoolGrey
-                    ) {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.AutoMirrored.Rounded.ArrowForward,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = TextSecondary
-                            )
-                        }
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // ── Permissions card — hidden when all permissions are granted ──
-            if (!allPermissionsGranted) {
+            // ── Schedule list (inline) ──
+            if (schedules.isEmpty()) {
                 Card(
-                    onClick = onNavigateToPermissions,
+                    onClick = onCreateSchedule,
                     modifier = Modifier
                         .fillMaxWidth()
                         .shadow(2.dp, RoundedCornerShape(16.dp)),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surface
-                    )
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Surface(
-                            modifier = Modifier.size(40.dp),
-                            shape = CircleShape,
-                            color = SlateBlue.copy(alpha = 0.1f)
-                        ) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Rounded.Security,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = SlateBlue
-                                )
-                            }
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                stringResource(R.string.permissions),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
-                            )
-                            Text(
-                                stringResource(R.string.permissions_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = TextSecondary
-                            )
-                        }
-                        Surface(
-                            modifier = Modifier.size(32.dp),
-                            shape = CircleShape,
-                            color = CoolGrey
-                        ) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.AutoMirrored.Rounded.ArrowForward,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = TextSecondary
-                                )
-                            }
-                        }
+                        Icon(
+                            Icons.Rounded.EventBusy,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = TextHint
+                        )
+                        Text(
+                            stringResource(R.string.no_schedules),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = TextSecondary
+                        )
+                        Text(
+                            stringResource(R.string.no_schedules_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextHint
+                        )
                     }
                 }
+            } else {
+                schedules.forEach { schedule ->
+                    val isActive = activeSessions.any { it.scheduleId == schedule.id }
+                    ScheduleItem(
+                        schedule = schedule,
+                        isActive = isActive,
+                        onClick = {
+                            if (isActive) {
+                                onFrictionGateRequired(schedule) { onEditSchedule(schedule) }
+                            } else {
+                                onEditSchedule(schedule)
+                            }
+                        },
+                        onToggle = {
+                            if (isActive) {
+                                onFrictionGateRequired(schedule) {
+                                    Schedules.toggle(schedule.id, context)
+                                    refreshSchedules()
+                                }
+                            } else {
+                                Schedules.toggle(schedule.id, context)
+                                refreshSchedules()
+                            }
+                        },
+                        onEdit = {
+                            if (isActive) {
+                                onFrictionGateRequired(schedule) { onEditSchedule(schedule) }
+                            } else {
+                                onEditSchedule(schedule)
+                            }
+                        }
+                    )
+                    Spacer(Modifier.height(10.dp))
+                }
             }
+
+            Spacer(Modifier.height(16.dp))
 
             // ── Footer ──
             Spacer(Modifier.weight(1f))
@@ -343,7 +255,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
@@ -354,4 +266,143 @@ fun HomeScreen(
             }
         }
     }
+}
+
+// ── Schedule item card ──
+
+@Composable
+private fun ScheduleItem(
+    schedule: Schedule,
+    isActive: Boolean,
+    onClick: () -> Unit,
+    onToggle: () -> Unit,
+    onEdit: () -> Unit
+) {
+    Card(
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(2.dp, RoundedCornerShape(16.dp)),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = if (isActive) BorderStroke(1.5.dp, IndigoPrimary.copy(alpha = 0.4f)) else null
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Emoji/icon circle
+            Surface(
+                modifier = Modifier.size(40.dp),
+                shape = CircleShape,
+                color = if (isActive) IndigoPrimary.copy(alpha = 0.1f) else CoolGrey
+            ) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("🚫", fontSize = 18.sp)
+                }
+            }
+
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        schedule.name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        color = TextPrimary
+                    )
+                    if (isActive) {
+                        Spacer(Modifier.width(8.dp))
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = BadgeGreen.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                stringResource(R.string.always_badge),
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = BadgeGreen,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
+                Text(
+                    buildScheduleDescription(schedule),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = TextSecondary
+                )
+            }
+
+            // Delete / Edit icons
+            IconButton(
+                onClick = onEdit,
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    Icons.Rounded.Edit,
+                    contentDescription = stringResource(R.string.edit_schedule),
+                    modifier = Modifier.size(16.dp),
+                    tint = TextHint
+                )
+            }
+
+            Switch(
+                checked = schedule.isEnabled,
+                onCheckedChange = { onToggle() },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = White,
+                    checkedTrackColor = IndigoPrimary,
+                    uncheckedThumbColor = White,
+                    uncheckedTrackColor = DayChipUnselected
+                )
+            )
+        }
+    }
+}
+
+@Composable
+private fun buildScheduleDescription(schedule: Schedule): String {
+    val parts = mutableListOf<String>()
+
+    when (schedule.timing.type) {
+        ScheduleTiming.ScheduleType.MANUAL -> parts.add(stringResource(R.string.manual))
+        ScheduleTiming.ScheduleType.DAILY -> {
+            schedule.timing.time?.let { start ->
+                schedule.timing.endTime?.let { end ->
+                    parts.add(
+                        stringResource(R.string.daily_time_range, start.toString(), end.toString())
+                    )
+                }
+            }
+        }
+        ScheduleTiming.ScheduleType.WEEKLY -> {
+            if (schedule.timing.daysOfWeek.isNotEmpty()) {
+                val dayNames =
+                    schedule.timing.daysOfWeek.sortedBy { it.value }.joinToString(", ") {
+                        it.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                    }
+                parts.add(dayNames)
+            }
+        }
+    }
+
+    val blockCount = schedule.blockedApps.size + schedule.blockedWebsites.size
+    if (blockCount > 0) {
+        if (schedule.blockedWebsites.isNotEmpty()) {
+            val websiteList = schedule.blockedWebsites.take(3).joinToString(", ")
+            parts.add("$blockCount blocked ($websiteList)")
+        } else {
+            parts.add(stringResource(R.string.blocked_items_count, blockCount))
+        }
+    }
+
+    return parts.joinToString(" • ")
 }
