@@ -11,10 +11,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import net.kollnig.reddblockandroid.data.Schedule
+import net.kollnig.reddblockandroid.ui.screen.ConsentScreen
 import net.kollnig.reddblockandroid.ui.screen.CreateScheduleScreen
 import net.kollnig.reddblockandroid.ui.screen.FrictionGateScreen
 import net.kollnig.reddblockandroid.ui.screen.HomeScreen
 import net.kollnig.reddblockandroid.ui.screen.PermissionsScreen
+import net.kollnig.reddblockandroid.util.hasConsented
 import net.kollnig.reddblockandroid.ui.theme.ReDDBlockAndroidTheme
 
 class MainActivity : ComponentActivity() {
@@ -37,7 +39,20 @@ fun AppNavigation() {
     var pendingFrictionAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var frictionWordCount by remember { mutableIntStateOf(15) }
 
-    NavHost(navController = navController, startDestination = "home") {
+    val startDestination = if (hasConsented) "home" else "consent"
+
+    NavHost(navController = navController, startDestination = startDestination) {
+        composable("consent") {
+            ConsentScreen(
+                onConsentGiven = {
+                    hasConsented = true
+                    navController.navigate("home") {
+                        popUpTo("consent") { inclusive = true }
+                    }
+                }
+            )
+        }
+
         composable("home") {
             HomeScreen(
                 onNavigateToPermissions = { navController.navigate("permissions") },
