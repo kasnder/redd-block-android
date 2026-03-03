@@ -42,6 +42,49 @@ object Schedules {
         }
     }
 
+    fun exportSchedules(): String {
+        val schedules = getAll()
+        val json = JSONArray().apply {
+            schedules.forEach { put(scheduleToJson(it)) }
+        }
+        return json.toString(2)
+    }
+
+    fun importSchedules(jsonString: String, context: Context): Int {
+        return try {
+            val arr = JSONArray(jsonString)
+            var count = 0
+            for (i in 0 until arr.length()) {
+                val obj = arr.getJSONObject(i)
+                val schedule = parseSchedule(obj)
+                if (schedule != null) {
+                    val newSchedule = schedule.copy(id = UUID.randomUUID().toString())
+                    save(newSchedule, context)
+                    count++
+                    
+                    if (newSchedule.isEnabled) {
+                        when (newSchedule.timing.type) {
+                            ScheduleTiming.ScheduleType.MANUAL -> {
+                                startSession(context, newSchedule)
+                            }
+                            ScheduleTiming.ScheduleType.DAILY,
+                            ScheduleTiming.ScheduleType.WEEKLY -> {
+                                if (ScheduleManager.isScheduleActiveNow(newSchedule)) {
+                                    startSession(context, newSchedule)
+                                }
+                                ScheduleManager.scheduleTimedSchedule(context, newSchedule)
+                            }
+                        }
+                    }
+                }
+            }
+            count
+        } catch (e: Exception) {
+            Log.e(TAG, "Failed to import schedules", e)
+            -1
+        }
+    }
+
     fun get(id: String): Schedule? = getAll().find { it.id == id }
 
     fun save(schedule: Schedule, context: Context) {

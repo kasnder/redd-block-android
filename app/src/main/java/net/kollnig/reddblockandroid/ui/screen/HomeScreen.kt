@@ -27,6 +27,9 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import java.time.format.TextStyle
 import java.util.Locale
+import kotlinx.coroutines.launch
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import net.kollnig.reddblockandroid.R
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
@@ -51,6 +54,57 @@ fun HomeScreen(
 
     var schedules by remember { mutableStateOf(Schedules.getAll()) }
     var activeSessions by remember { mutableStateOf(Schedules.getActiveSessions()) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
+    var isMenuExpanded by remember { mutableStateOf(false) }
+
+    val exportSuccessMsg = stringResource(R.string.export_success)
+    val exportErrorMsg = stringResource(R.string.export_error)
+    val importSuccessMsg = stringResource(R.string.import_success)
+    val importErrorMsg = stringResource(R.string.import_error)
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let {
+            try {
+                val json = Schedules.exportSchedules()
+                context.contentResolver.openOutputStream(it)?.use { out ->
+                    out.write(json.toByteArray())
+                }
+                coroutineScope.launch { snackbarHostState.showSnackbar(exportSuccessMsg) }
+            } catch (e: Exception) {
+                coroutineScope.launch { snackbarHostState.showSnackbar(exportErrorMsg) }
+            }
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let {
+            try {
+                val json = context.contentResolver.openInputStream(it)?.use { inStream ->
+                    inStream.bufferedReader().use { reader -> reader.readText() }
+                }
+                if (json != null) {
+                    val importedCount = Schedules.importSchedules(json, context)
+                    if (importedCount > 0) {
+                        coroutineScope.launch {
+                            snackbarHostState.showSnackbar(String.format(importSuccessMsg, importedCount))
+                        }
+                    } else {
+                        coroutineScope.launch { snackbarHostState.showSnackbar(importErrorMsg) }
+                    }
+                } else {
+                    coroutineScope.launch { snackbarHostState.showSnackbar(importErrorMsg) }
+                }
+            } catch (e: Exception) {
+                coroutineScope.launch { snackbarHostState.showSnackbar(importErrorMsg) }
+            }
+        }
+    }
 
     fun refreshSchedules() {
         val now = System.currentTimeMillis()
@@ -81,7 +135,8 @@ fun HomeScreen(
     val allPermissionsGranted = isAccessibilityEnabled && hasNotifications && hasBatteryOpt
 
     Scaffold(
-        containerColor = MaterialTheme.colorScheme.background
+        containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -255,14 +310,50 @@ fun HomeScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.Center,
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Spacer(Modifier.size(24.dp)) // To keep text centered (same width as icon)
                 Text(
                     stringResource(R.string.footer_text),
                     style = MaterialTheme.typography.bodySmall,
                     color = TextHint
                 )
+                Box {
+                    Icon(
+                        Icons.Rounded.Settings,
+                        contentDescription = "Settings",
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clickable { isMenuExpanded = true },
+                        tint = TextHint
+                    )
+                    DropdownMenu(
+                        expanded = isMenuExpanded,
+                        onDismissRequest = { isMenuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.export_rules)) },
+                            onClick = {
+                                isMenuExpanded = false
+                                exportLauncher.launch("reddblock_rules.json")
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Rounded.Upload, contentDescription = null)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.import_rules)) },
+                            onClick = {
+                                isMenuExpanded = false
+                                importLauncher.launch(arrayOf("application/json"))
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Rounded.Download, contentDescription = null)
+                            }
+                        )
+                    }
+                }
             }
         }
     }

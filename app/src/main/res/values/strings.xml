@@ -125,4 +125,12 @@
     <!-- Accessibility Service config -->
     <string name="accessibility_service_label">ReDD Block</string>
     <string name="accessibility_service_summary">Monitors app launches and browser navigation to enforce blocking schedules.</string>
+    
+    <!-- Backup -->
+    <string name="export_rules">Export Rules</string>
+    <string name="import_rules">Import Rules</string>
+    <string name="export_success">Rules exported successfully</string>
+    <string name="export_error">Failed to export rules</string>
+    <string name="import_success">Imported %d rules successfully</string>
+    <string name="import_error">Failed to import rules</string>
 </resources>
