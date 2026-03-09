@@ -19,3 +19,8 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+# Fix for WorkManager crash in release builds with R8 full mode
+-keep class androidx.work.impl.WorkDatabase_Impl {
+    <init>();
+}
