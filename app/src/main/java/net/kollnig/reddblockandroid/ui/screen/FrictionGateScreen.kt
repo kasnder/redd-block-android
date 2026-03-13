@@ -65,6 +65,9 @@ fun FrictionGateScreen(
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
+    // Build the challenge phrase (all remaining words)
+    val challengePhrase = remember { words.joinToString(" ") }
+
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboardController?.show()
@@ -156,6 +159,22 @@ fun FrictionGateScreen(
                         style = MaterialTheme.typography.bodyMedium,
                         color = TextSecondary
                     )
+
+                    // Challenge phrase in monospace code block
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp),
+                        color = CoolGrey
+                    ) {
+                        Text(
+                            challengePhrase,
+                            modifier = Modifier.padding(14.dp),
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 14.sp,
+                            lineHeight = 22.sp,
+                            color = TextPrimary
+                        )
+                    }
 
                     // Current word highlight
                     Text(
