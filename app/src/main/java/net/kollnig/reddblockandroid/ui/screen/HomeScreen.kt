@@ -58,6 +58,7 @@ fun HomeScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
     var isMenuExpanded by remember { mutableStateOf(false) }
+    var showAccessibilityDialog by remember { mutableStateOf(false) }
 
     val exportSuccessMsg = stringResource(R.string.export_success)
     val exportErrorMsg = stringResource(R.string.export_error)
@@ -151,7 +152,7 @@ fun HomeScreen(
             // ── Status card ──
             if (!isAccessibilityEnabled) {
                 Card(
-                    onClick = onNavigateToPermissions,
+                    onClick = { showAccessibilityDialog = true },
                     modifier = Modifier
                         .fillMaxWidth()
                         .shadow(4.dp, RoundedCornerShape(16.dp)),
@@ -355,6 +356,17 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+
+        if (showAccessibilityDialog) {
+            AccessibilityConsentDialog(
+                onDismiss = { showAccessibilityDialog = false },
+                onAgree = {
+                    showAccessibilityDialog = false
+                    val intent = android.content.Intent(android.provider.Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                    context.startActivity(intent)
+                }
+            )
         }
     }
 }

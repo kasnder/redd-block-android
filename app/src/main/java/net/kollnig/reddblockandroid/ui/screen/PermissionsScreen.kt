@@ -38,6 +38,7 @@ fun PermissionsScreen(
     var accessibilityEnabled by remember { mutableStateOf(context.isAccessibilityServiceEnabled()) }
     var notificationEnabled by remember { mutableStateOf(context.hasNotificationPermission()) }
     var batteryOptDisabled by remember { mutableStateOf(context.isBatteryOptimizationDisabled()) }
+    var showAccessibilityDialog by remember { mutableStateOf(false) }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
@@ -96,7 +97,7 @@ fun PermissionsScreen(
                 isGranted = accessibilityEnabled,
                 isRequired = true,
                 onClick = {
-                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                    showAccessibilityDialog = true
                 }
             )
 
@@ -129,6 +130,17 @@ fun PermissionsScreen(
             )
 
             Spacer(Modifier.height(16.dp))
+        }
+
+        if (showAccessibilityDialog) {
+            AccessibilityConsentDialog(
+                onDismiss = { showAccessibilityDialog = false },
+                onAgree = {
+                    showAccessibilityDialog = false
+                    val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                    context.startActivity(intent)
+                }
+            )
         }
     }
 }

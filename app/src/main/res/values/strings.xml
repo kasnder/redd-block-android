@@ -3,9 +3,10 @@
     <string name="app_name">ReDD Block</string>
 
     <!-- Consent Screen -->
-    <string name="consent_title">Welcome to ReDD Block</string>
-    <string name="consent_text">ReDD Block relies on the Android Accessibility API to block distracting apps and websites.\n\nSuch blocking can come with risks, e.g. locking yourself out of your apps. Therefore, use the app carefully.\n\nBy accepting below, you acknowledge these risks and agree that you use ReDD Block entirely at your own risk.</string>
-    <string name="consent_agree">I Understand &amp; Agree</string>
+    <string name="accessibility_consent_title">Consent necessary</string>
+    <string name="accessibility_consent_text">ReDD Block needs your explicit permission to use the Android Accessibility feature. We use this feature to detect and block access to specific apps and websites according to your schedules.\n\nTap \"I Agree\" to proceed to your Settings and enable it.</string>
+    <string name="accessibility_consent_agree">I Agree</string>
+    <string name="accessibility_consent_deny">Not Now</string>
 
     <!-- Home Screen -->
     <string name="setup_required">Setup Required</string>
