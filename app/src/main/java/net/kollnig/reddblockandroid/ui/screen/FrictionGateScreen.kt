@@ -21,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,9 +64,6 @@ fun FrictionGateScreen(
     var isError by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
-
-    // Build the challenge phrase (all remaining words)
-    val challengePhrase = remember { words.joinToString(" ") }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
@@ -159,22 +157,6 @@ fun FrictionGateScreen(
                         color = TextSecondary
                     )
 
-                    // Challenge phrase in monospace code block
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        color = CoolGrey
-                    ) {
-                        Text(
-                            challengePhrase,
-                            modifier = Modifier.padding(14.dp),
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 14.sp,
-                            lineHeight = 22.sp,
-                            color = TextPrimary
-                        )
-                    }
-
                     // Current word highlight
                     Text(
                         stringResource(R.string.friction_gate_progress, currentWordIndex + 1, words.size),
@@ -217,7 +199,11 @@ fun FrictionGateScreen(
                         supportingText = if (isError) {
                             { Text(stringResource(R.string.friction_gate_error)) }
                         } else null,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardOptions = KeyboardOptions(
+                            imeAction = ImeAction.Done,
+                            autoCorrectEnabled = false,
+                            keyboardType = KeyboardType.Password
+                        ),
                         keyboardActions = KeyboardActions(onDone = { checkWord() }),
                         colors = OutlinedTextFieldDefaults.colors(
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
