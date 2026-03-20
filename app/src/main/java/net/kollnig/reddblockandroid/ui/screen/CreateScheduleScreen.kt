@@ -186,7 +186,7 @@ fun CreateScheduleScreen(
             OutlinedTextField(
                 value = scheduleName,
                 onValueChange = { scheduleName = it },
-                placeholder = { Text(stringResource(R.string.schedule_name), color = TextHint) },
+                placeholder = { Text(stringResource(R.string.schedule_name), color = MaterialTheme.colorScheme.outline) },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true,
@@ -218,7 +218,7 @@ fun CreateScheduleScreen(
                             blockedWebsites.forEach { domain ->
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = ChipGreen,
+                                    color = MaterialTheme.colorScheme.tertiaryContainer,
                                     modifier = Modifier
                                 ) {
                                     Row(
@@ -230,7 +230,7 @@ fun CreateScheduleScreen(
                                             domain,
                                             style = MaterialTheme.typography.bodySmall,
                                             fontWeight = FontWeight.Medium,
-                                            color = ChipGreenText
+                                            color = MaterialTheme.colorScheme.onTertiaryContainer
                                         )
                                         Icon(
                                             Icons.Rounded.Close,
@@ -238,7 +238,7 @@ fun CreateScheduleScreen(
                                             modifier = Modifier
                                                 .size(14.dp)
                                                 .clickable { blockedWebsites = blockedWebsites - domain },
-                                            tint = ChipGreenText
+                                            tint = MaterialTheme.colorScheme.onTertiaryContainer
                                         )
                                     }
                                 }
@@ -252,7 +252,7 @@ fun CreateScheduleScreen(
                     OutlinedTextField(
                         value = inlineWebsite,
                         onValueChange = { inlineWebsite = it },
-                        placeholder = { Text(stringResource(R.string.website_placeholder), color = TextHint) },
+                        placeholder = { Text(stringResource(R.string.website_placeholder), color = MaterialTheme.colorScheme.outline) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(8.dp),
                         singleLine = true,
@@ -265,8 +265,8 @@ fun CreateScheduleScreen(
                         }),
                         colors = OutlinedTextFieldDefaults.colors(
                             unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                            unfocusedContainerColor = SurfaceLight,
-                            focusedContainerColor = SurfaceLight
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
                         )
                     )
                 }
@@ -310,7 +310,7 @@ fun CreateScheduleScreen(
                                     style = MaterialTheme.typography.bodyMedium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
-                                    color = TextPrimary
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 IconButton(
                                     onClick = { blockedApps = blockedApps - pkg },
@@ -337,8 +337,8 @@ fun CreateScheduleScreen(
                 modifier = Modifier.fillMaxWidth().height(48.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = DarkNavy,
-                    contentColor = White
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 )
             ) {
                 Icon(Icons.Rounded.Apps, contentDescription = null, modifier = Modifier.size(18.dp))
@@ -387,7 +387,7 @@ fun CreateScheduleScreen(
                             Text(
                                 stringResource(R.string.start_time).uppercase(),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = TextSecondary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp
                             )
@@ -397,7 +397,7 @@ fun CreateScheduleScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 TimeBox(String.format("%02d", selectedTime.hour))
-                                Text(":", fontWeight = FontWeight.Bold, color = TextSecondary)
+                                Text(":", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 TimeBox(String.format("%02d", selectedTime.minute))
                             }
                         }
@@ -407,7 +407,7 @@ fun CreateScheduleScreen(
                     Box(
                         modifier = Modifier.align(Alignment.CenterVertically).padding(top = 16.dp)
                     ) {
-                        Text("→", color = TextSecondary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        Text("→", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     }
 
                     // End time card
@@ -423,7 +423,7 @@ fun CreateScheduleScreen(
                             Text(
                                 stringResource(R.string.end_time).uppercase(),
                                 style = MaterialTheme.typography.labelSmall,
-                                color = TextSecondary,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 0.5.sp
                             )
@@ -433,7 +433,7 @@ fun CreateScheduleScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 TimeBox(String.format("%02d", selectedEndTime.hour))
-                                Text(":", fontWeight = FontWeight.Bold, color = TextSecondary)
+                                Text(":", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 TimeBox(String.format("%02d", selectedEndTime.minute))
                             }
                         }
@@ -460,14 +460,14 @@ fun CreateScheduleScreen(
                                     else selectedDays + day
                                 },
                             shape = CircleShape,
-                            color = if (isSelected) DayChipSelected else DayChipUnselected
+                            color = if (isSelected) DayChipSelected else MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text(
                                     day.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
                                     style = MaterialTheme.typography.labelMedium,
                                     fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) White else TextSecondary
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
                         }
@@ -495,7 +495,7 @@ fun CreateScheduleScreen(
                         Text(
                             stringResource(R.string.friction_word_count),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
                             "$frictionWordCount",
@@ -518,7 +518,7 @@ fun CreateScheduleScreen(
                     Text(
                         stringResource(R.string.friction_word_count_desc),
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextHint
+                        color = MaterialTheme.colorScheme.outline
                     )
                 }
             }
@@ -535,7 +535,7 @@ fun CreateScheduleScreen(
                     Text(
                         stringResource(R.string.auto_reenable),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     Spacer(Modifier.height(8.dp))
                     var expanded by remember { mutableStateOf(false) }
@@ -554,8 +554,8 @@ fun CreateScheduleScreen(
                             shape = RoundedCornerShape(10.dp),
                             colors = OutlinedTextFieldDefaults.colors(
                                 unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                                unfocusedContainerColor = SurfaceLight,
-                                focusedContainerColor = SurfaceLight
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
                             )
                         )
                         ExposedDropdownMenu(
@@ -577,7 +577,7 @@ fun CreateScheduleScreen(
                     Text(
                         stringResource(R.string.auto_reenable_desc),
                         style = MaterialTheme.typography.bodySmall,
-                        color = TextHint
+                        color = MaterialTheme.colorScheme.outline
                     )
                 }
             }
@@ -590,8 +590,8 @@ fun CreateScheduleScreen(
                     .height(52.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = DarkNavy,
-                    contentColor = White
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
                 enabled = scheduleName.isNotBlank()
             ) {
@@ -680,7 +680,7 @@ private fun SectionHeader(text: String) {
         text,
         style = MaterialTheme.typography.labelMedium,
         fontWeight = FontWeight.Bold,
-        color = TextSecondary,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
         letterSpacing = 1.sp,
         modifier = Modifier.padding(top = 4.dp)
     )
@@ -690,14 +690,14 @@ private fun SectionHeader(text: String) {
 private fun TimeBox(value: String) {
     Surface(
         shape = RoundedCornerShape(8.dp),
-        color = CoolGrey
+        color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         Text(
             value,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            color = TextPrimary
+            color = MaterialTheme.colorScheme.onSurface
         )
     }
 }
@@ -835,7 +835,7 @@ private fun AppPickerDialog(
                                     Text(
                                         appInfo.packageName,
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = TextHint,
+                                        color = MaterialTheme.colorScheme.outline,
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )

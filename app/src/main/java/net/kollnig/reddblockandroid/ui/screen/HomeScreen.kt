@@ -157,7 +157,7 @@ fun HomeScreen(
                         .fillMaxWidth()
                         .shadow(4.dp, RoundedCornerShape(16.dp)),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = SoftRedBg)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
                 ) {
                     Row(
                         modifier = Modifier
@@ -185,19 +185,19 @@ fun HomeScreen(
                                 stringResource(R.string.setup_required),
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.SemiBold,
-                                color = TextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 stringResource(R.string.setup_required_desc),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = TextSecondary
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                         Icon(
                             Icons.AutoMirrored.Rounded.ArrowForward,
                             contentDescription = null,
                             modifier = Modifier.size(18.dp),
-                            tint = TextSecondary
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -216,7 +216,7 @@ fun HomeScreen(
                     stringResource(R.string.your_blocklists),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
-                    color = TextSecondary,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                     letterSpacing = 1.sp
                 )
                 IconButton(
@@ -227,7 +227,7 @@ fun HomeScreen(
                         Icons.Rounded.Add,
                         contentDescription = stringResource(R.string.create_schedule),
                         modifier = Modifier.size(20.dp),
-                        tint = TextSecondary
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -253,17 +253,17 @@ fun HomeScreen(
                             Icons.Rounded.EventBusy,
                             contentDescription = null,
                             modifier = Modifier.size(48.dp),
-                            tint = TextHint
+                            tint = MaterialTheme.colorScheme.outline
                         )
                         Text(
                             stringResource(R.string.no_schedules),
                             style = MaterialTheme.typography.titleSmall,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             stringResource(R.string.no_schedules_desc),
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextHint
+                            color = MaterialTheme.colorScheme.outline
                         )
                     }
                 }
@@ -318,7 +318,7 @@ fun HomeScreen(
                 Text(
                     stringResource(R.string.footer_text),
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextHint
+                    color = MaterialTheme.colorScheme.outline
                 )
                 Box {
                     Icon(
@@ -327,7 +327,7 @@ fun HomeScreen(
                         modifier = Modifier
                             .size(24.dp)
                             .clickable { isMenuExpanded = true },
-                        tint = TextHint
+                        tint = MaterialTheme.colorScheme.outline
                     )
                     DropdownMenu(
                         expanded = isMenuExpanded,
@@ -401,7 +401,7 @@ private fun ScheduleItem(
             Surface(
                 modifier = Modifier.size(40.dp),
                 shape = CircleShape,
-                color = if (isActive) IndigoPrimary.copy(alpha = 0.1f) else CoolGrey
+                color = if (isActive) IndigoPrimary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("🚫", fontSize = 18.sp)
@@ -416,7 +416,7 @@ private fun ScheduleItem(
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     if (isActive) {
                         Spacer(Modifier.width(8.dp))
@@ -440,7 +440,7 @@ private fun ScheduleItem(
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -453,7 +453,7 @@ private fun ScheduleItem(
                     Icons.Rounded.Edit,
                     contentDescription = stringResource(R.string.edit_schedule),
                     modifier = Modifier.size(16.dp),
-                    tint = TextHint
+                    tint = MaterialTheme.colorScheme.outline
                 )
             }
 
@@ -461,10 +461,10 @@ private fun ScheduleItem(
                 checked = schedule.isEnabled,
                 onCheckedChange = { onToggle() },
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = White,
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                     checkedTrackColor = IndigoPrimary,
-                    uncheckedThumbColor = White,
-                    uncheckedTrackColor = DayChipUnselected
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
         }
