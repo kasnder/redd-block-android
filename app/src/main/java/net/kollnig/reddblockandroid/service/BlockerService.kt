@@ -20,6 +20,7 @@ import net.kollnig.reddblockandroid.util.BLOCKER_CHANNEL_ID
 import net.kollnig.reddblockandroid.util.NotificationHelper.createNotificationChannel
 import net.kollnig.reddblockandroid.util.isPrefsInitialized
 import net.kollnig.reddblockandroid.util.prefs
+import androidx.core.net.toUri
 
 @SuppressLint("AccessibilityPolicy")
 class BlockerService : AccessibilityService() {
@@ -157,7 +158,7 @@ class BlockerService : AccessibilityService() {
 
     private fun navigateBrowserToBlank(browserPackage: String) {
         try {
-            val uri = Uri.parse("https://reddfocus.org")
+            val uri = "https://reddfocus.org".toUri()
             val intent = Intent(Intent.ACTION_VIEW, uri).apply {
                 setPackage(browserPackage)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
