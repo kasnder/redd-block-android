@@ -68,16 +68,18 @@ class BlockerService : AccessibilityService() {
         if (isSupportedBrowser(pkg)) {
             val currentTime = System.currentTimeMillis()
             if (currentTime - lastUrlCheckTime >= URL_CHECK_THROTTLE_MS) {
-                lastUrlCheckTime = currentTime
                 val url = extractUrlFromEvent(event)
-                if (url != null && url != lastCheckedUrl) {
-                    lastCheckedUrl = url
-                    val domain = extractDomain(url)
-                    if (domain != null && Schedules.isWebsiteBlocked(domain)) {
-                        Log.d(TAG, "Blocking website $domain in browser ($pkg)")
-                        navigateBrowserToBlank(pkg)
-                        showWebsiteBlockedNotification(domain)
-                        return
+                if (url != null) {
+                    lastUrlCheckTime = currentTime
+                    if (url != lastCheckedUrl) {
+                        lastCheckedUrl = url
+                        val domain = extractDomain(url)
+                        if (domain != null && Schedules.isWebsiteBlocked(domain)) {
+                            Log.d(TAG, "Blocking website $domain in browser ($pkg)")
+                            navigateBrowserToBlank(pkg)
+                            showWebsiteBlockedNotification(domain)
+                            return
+                        }
                     }
                 }
             }
@@ -175,27 +177,24 @@ class BlockerService : AccessibilityService() {
             val viewIds = browserUrlViewIds[pkg] ?: return null
             val knownUrlViewIds = viewIds.map { "$pkg:id/$it" } + viewIds
 
+            // First try the standard API with fully-qualified resource IDs
             for (viewId in knownUrlViewIds) {
                 val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
                 if (nodes.isNullOrEmpty()) continue
-                for (node in nodes) {
-                    try {
-                        // We intentionally do not skip focused nodes, because otherwise 
-                        // the service completely misses URLs after navigation while focused
-                        val rawText = node.text?.toString() ?: node.contentDescription?.toString()
-                        if (rawText != null) {
-                            val words = rawText.split("\\s+".toRegex())
-                            for (word in words) {
-                                val cleanWord = word.trimEnd('.', ',')
-                                if (isValidUrlFormat(cleanWord)) {
-                                    return cleanWord
-                                }
-                            }
-                        }
-                    } finally {
-                        node.recycle()
-                    }
-                }
+                val url = extractUrlFromNodes(nodes)
+                if (url != null) return url
+            }
+
+            // Fallback: manually traverse the tree to find nodes by bare resource-id.
+            // Newer browsers (e.g. Firefox with Jetpack Compose) use test tags as
+            // resource-ids without the "package:id/" prefix, which
+            // findAccessibilityNodeInfosByViewId cannot match.
+            val bareIds = viewIds.toSet()
+            val fallbackNodes = mutableListOf<android.view.accessibility.AccessibilityNodeInfo>()
+            findNodesByBareResourceId(root, bareIds, fallbackNodes)
+            if (fallbackNodes.isNotEmpty()) {
+                val url = extractUrlFromNodes(fallbackNodes)
+                if (url != null) return url
             }
         } catch (e: Exception) {
             Log.e(TAG, "Error extracting URL", e)
@@ -203,6 +202,50 @@ class BlockerService : AccessibilityService() {
             root.recycle()
         }
         return null
+    }
+
+    private fun extractUrlFromNodes(
+        nodes: List<android.view.accessibility.AccessibilityNodeInfo>
+    ): String? {
+        for (node in nodes) {
+            try {
+                // Skip if the URL bar is focused — user is typing,
+                // don't block on autocomplete suggestions
+                if (node.isFocused) continue
+                val rawText = node.text?.toString()?.takeIf { it.isNotBlank() }
+                    ?: node.contentDescription?.toString()
+                if (rawText != null) {
+                    val words = rawText.split("\\s+".toRegex())
+                    for (word in words) {
+                        val cleanWord = word.trimEnd('.', ',')
+                        if (isValidUrlFormat(cleanWord)) {
+                            return cleanWord
+                        }
+                    }
+                }
+            } finally {
+                node.recycle()
+            }
+        }
+        return null
+    }
+
+    /** Recursively walks the accessibility tree looking for nodes whose
+     *  viewIdResourceName matches one of [targetIds] (bare, without package prefix). */
+    private fun findNodesByBareResourceId(
+        node: android.view.accessibility.AccessibilityNodeInfo,
+        targetIds: Set<String>,
+        results: MutableList<android.view.accessibility.AccessibilityNodeInfo>
+    ) {
+        val resName = node.viewIdResourceName
+        if (resName != null && resName in targetIds) {
+            results.add(android.view.accessibility.AccessibilityNodeInfo.obtain(node))
+        }
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i) ?: continue
+            findNodesByBareResourceId(child, targetIds, results)
+            child.recycle()
+        }
     }
 
     private fun isValidUrlFormat(text: String): Boolean {
