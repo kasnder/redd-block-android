@@ -37,6 +37,10 @@ class BlockerService : AccessibilityService() {
     private var lastUrlCheckTime: Long = 0
     private val URL_CHECK_THROTTLE_MS = 500L
 
+    private var lastBlockedPkg: String? = null
+    private var lastBlockedTime: Long = 0
+    private val APP_BLOCK_THROTTLE_MS = 2000L
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         createNotificationChannel()
@@ -90,9 +94,14 @@ class BlockerService : AccessibilityService() {
         if (shouldSkipPackage(pkg)) return
 
         if (Schedules.isAppBlocked(pkg)) {
-            Log.d(TAG, "Blocking app $pkg")
-            performGlobalAction(GLOBAL_ACTION_HOME)
-            showAppBlockedNotification(pkg)
+            val now = System.currentTimeMillis()
+            if (pkg != lastBlockedPkg || now - lastBlockedTime >= APP_BLOCK_THROTTLE_MS) {
+                lastBlockedPkg = pkg
+                lastBlockedTime = now
+                Log.d(TAG, "Blocking app $pkg")
+                performGlobalAction(GLOBAL_ACTION_HOME)
+                showAppBlockedNotification(pkg)
+            }
         }
     }
 
