@@ -60,7 +60,6 @@ class BlockerService : AccessibilityService() {
         if (keyguardManager.isKeyguardLocked) return
 
         if (event.eventType != AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) return
-        if (event.contentChangeTypes == AccessibilityEvent.CONTENT_CHANGE_TYPE_CONTENT_DESCRIPTION) return
 
         val pkg = event.packageName?.toString() ?: return
         if (pkg == packageName) return
@@ -111,19 +110,19 @@ class BlockerService : AccessibilityService() {
     /** Maps browser package names to their URL bar view IDs */
     private val browserUrlViewIds = mapOf(
         // Firefox variants
-        "org.mozilla.firefox" to listOf("mozac_browser_toolbar_url_view", "url_bar_title"),
-        "org.mozilla.firefox_beta" to listOf("mozac_browser_toolbar_url_view", "url_bar_title"),
-        "org.mozilla.fenix" to listOf("mozac_browser_toolbar_url_view", "url_bar_title"),
-        "org.mozilla.fenix.nightly" to listOf("mozac_browser_toolbar_url_view", "url_bar_title"),
-        "org.mozilla.focus" to listOf("mozac_browser_toolbar_url_view", "url_bar_title"),
+        "org.mozilla.firefox" to listOf("mozac_browser_toolbar_url_view", "url_bar_title", "ADDRESSBAR_URL_BOX"),
+        "org.mozilla.firefox_beta" to listOf("mozac_browser_toolbar_url_view", "url_bar_title", "ADDRESSBAR_URL_BOX"),
+        "org.mozilla.fenix" to listOf("mozac_browser_toolbar_url_view", "url_bar_title", "ADDRESSBAR_URL_BOX"),
+        "org.mozilla.fenix.nightly" to listOf("mozac_browser_toolbar_url_view", "url_bar_title", "ADDRESSBAR_URL_BOX"),
+        "org.mozilla.focus" to listOf("mozac_browser_toolbar_url_view", "url_bar_title", "ADDRESSBAR_URL_BOX"),
         // Chrome / Chromium
-        "com.android.chrome" to listOf("url_bar", "origin"),
-        "com.chrome.beta" to listOf("url_bar"),
-        "org.chromium.chrome" to listOf("url_bar"),
+        "com.android.chrome" to listOf("url_bar", "origin", "display_url"),
+        "com.chrome.beta" to listOf("url_bar", "display_url"),
+        "org.chromium.chrome" to listOf("url_bar", "display_url"),
         // Brave
-        "com.brave.browser" to listOf("url_bar"),
-        "com.brave.browser_beta" to listOf("url_bar"),
-        "com.brave.browser_nightly" to listOf("url_bar"),
+        "com.brave.browser" to listOf("url_bar", "display_url"),
+        "com.brave.browser_beta" to listOf("url_bar", "display_url"),
+        "com.brave.browser_nightly" to listOf("url_bar", "display_url"),
         // Samsung Internet
         "com.sec.android.app.sbrowser" to listOf("location_bar_edit_text"),
         // Microsoft Edge
@@ -135,9 +134,9 @@ class BlockerService : AccessibilityService() {
         "com.opera.mini.native.beta" to listOf("url_field"),
         "com.opera.touch" to listOf("addressbarEdit"),
         // Vivaldi
-        "com.vivaldi.browser" to listOf("url_bar"),
+        "com.vivaldi.browser" to listOf("url_bar", "display_url"),
         // Kiwi Browser
-        "com.kiwibrowser.browser" to listOf("url_bar"),
+        "com.kiwibrowser.browser" to listOf("url_bar", "display_url"),
         // DuckDuckGo
         "com.duckduckgo.mobile.android" to listOf("omnibarTextInput"),
         // Ecosia
@@ -174,19 +173,24 @@ class BlockerService : AccessibilityService() {
         try {
             val pkg = event.packageName?.toString() ?: return null
             val viewIds = browserUrlViewIds[pkg] ?: return null
-            val knownUrlViewIds = viewIds.map { "$pkg:id/$it" }
+            val knownUrlViewIds = viewIds.map { "$pkg:id/$it" } + viewIds
 
             for (viewId in knownUrlViewIds) {
                 val nodes = root.findAccessibilityNodeInfosByViewId(viewId)
                 if (nodes.isNullOrEmpty()) continue
                 for (node in nodes) {
                     try {
-                        // Skip if the URL bar is focused — user is typing,
-                        // don't block on autocomplete suggestions
-                        if (node.isFocused) continue
-                        val text = node.text?.toString()
-                        if (text != null && isValidUrlFormat(text)) {
-                            return text
+                        // We intentionally do not skip focused nodes, because otherwise 
+                        // the service completely misses URLs after navigation while focused
+                        val rawText = node.text?.toString() ?: node.contentDescription?.toString()
+                        if (rawText != null) {
+                            val words = rawText.split("\\s+".toRegex())
+                            for (word in words) {
+                                val cleanWord = word.trimEnd('.', ',')
+                                if (isValidUrlFormat(cleanWord)) {
+                                    return cleanWord
+                                }
+                            }
                         }
                     } finally {
                         node.recycle()
