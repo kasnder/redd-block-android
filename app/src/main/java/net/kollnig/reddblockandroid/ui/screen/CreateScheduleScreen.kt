@@ -114,7 +114,16 @@ fun CreateScheduleScreen(
         val schedule = Schedule(
             id = existingSchedule?.id ?: UUID.randomUUID().toString(),
             name = scheduleName.trim(),
-            isEnabled = existingSchedule?.isEnabled ?: true,
+            isEnabled = if (existingSchedule != null) {
+                if (existingSchedule.timing.type != ScheduleTiming.ScheduleType.MANUAL && 
+                    scheduleType == ScheduleTiming.ScheduleType.MANUAL) {
+                    false
+                } else {
+                    existingSchedule.isEnabled
+                }
+            } else {
+                scheduleType != ScheduleTiming.ScheduleType.MANUAL
+            },
             timing = timing,
             blockedApps = blockedApps,
             blockedWebsites = blockedWebsites,
