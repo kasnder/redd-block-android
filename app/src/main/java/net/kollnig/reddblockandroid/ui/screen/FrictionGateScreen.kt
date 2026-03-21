@@ -123,14 +123,14 @@ fun FrictionGateScreen(
             LinearProgressIndicator(
                 progress = { (currentWordIndex.toFloat()) / words.size },
                 modifier = Modifier.fillMaxWidth(),
-                trackColor = DayChipUnselected,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
                 color = IndigoPrimary,
             )
 
             Text(
                 stringResource(R.string.friction_gate_progress, currentWordIndex + 1, words.size),
                 style = MaterialTheme.typography.labelMedium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             // ── Override card (iOS-style dialog look) ──
@@ -150,21 +150,21 @@ fun FrictionGateScreen(
                         stringResource(R.string.friction_gate_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
 
                     // Instruction
                     Text(
                         stringResource(R.string.override_instruction),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
 
                     // Challenge phrase in monospace code block
                     Surface(
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp),
-                        color = CoolGrey
+                        color = MaterialTheme.colorScheme.surfaceVariant
                     ) {
                         Text(
                             challengePhrase,
@@ -172,7 +172,7 @@ fun FrictionGateScreen(
                             fontFamily = FontFamily.Monospace,
                             fontSize = 14.sp,
                             lineHeight = 22.sp,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                         )
                     }
 
@@ -180,7 +180,7 @@ fun FrictionGateScreen(
                     Text(
                         stringResource(R.string.friction_gate_progress, currentWordIndex + 1, words.size),
                         style = MaterialTheme.typography.labelSmall,
-                        color = TextHint
+                        color = MaterialTheme.colorScheme.outline
                     )
 
                     // Word to type
@@ -226,8 +226,8 @@ fun FrictionGateScreen(
                         keyboardActions = KeyboardActions(onDone = { checkWord() }),
                         colors = OutlinedTextFieldDefaults.colors(
                             unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            unfocusedContainerColor = SurfaceLight,
-                            focusedContainerColor = SurfaceLight
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
                         )
                     )
 
@@ -241,7 +241,7 @@ fun FrictionGateScreen(
                             modifier = Modifier.weight(1f).height(48.dp),
                             shape = RoundedCornerShape(10.dp),
                             colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = TextPrimary
+                                contentColor = MaterialTheme.colorScheme.onSurface
                             )
                         ) {
                             Text(
@@ -256,8 +256,8 @@ fun FrictionGateScreen(
                             shape = RoundedCornerShape(10.dp),
                             enabled = userInput.isNotBlank(),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = DarkNavy,
-                                contentColor = White
+                                containerColor = MaterialTheme.colorScheme.primary,
+                                contentColor = MaterialTheme.colorScheme.onPrimary
                             )
                         ) {
                             Text(

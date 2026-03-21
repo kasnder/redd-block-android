@@ -90,8 +90,8 @@ fun SchedulesScreen(
             floatingActionButton = {
                 FloatingActionButton(
                     onClick = onCreateSchedule,
-                    containerColor = DarkNavy,
-                    contentColor = White
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
                 ) {
                     Icon(
                             Icons.Rounded.Add,
@@ -113,17 +113,17 @@ fun SchedulesScreen(
                             Icons.Rounded.EventBusy,
                             contentDescription = null,
                             modifier = Modifier.size(64.dp),
-                            tint = TextHint
+                            tint = MaterialTheme.colorScheme.outline
                     )
                     Text(
                             stringResource(R.string.no_schedules),
                             style = MaterialTheme.typography.titleMedium,
-                            color = TextSecondary
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                             stringResource(R.string.no_schedules_desc),
                             style = MaterialTheme.typography.bodyMedium,
-                            color = TextHint
+                            color = MaterialTheme.colorScheme.outline
                     )
                 }
             }
@@ -139,7 +139,7 @@ fun SchedulesScreen(
                         stringResource(R.string.your_blocklists),
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Bold,
-                        color = TextSecondary,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                         letterSpacing = 1.sp,
                         modifier = Modifier.padding(bottom = 4.dp)
                     )
@@ -217,7 +217,7 @@ private fun ScheduleItem(
             Surface(
                     modifier = Modifier.size(40.dp),
                     shape = CircleShape,
-                    color = if (isActive) IndigoPrimary.copy(alpha = 0.1f) else CoolGrey
+                    color = if (isActive) IndigoPrimary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
@@ -235,7 +235,7 @@ private fun ScheduleItem(
                             fontWeight = FontWeight.SemiBold,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
-                            color = TextPrimary
+                            color = MaterialTheme.colorScheme.onSurface
                     )
                     if (isActive) {
                         Spacer(Modifier.width(8.dp))
@@ -259,7 +259,7 @@ private fun ScheduleItem(
                         style = MaterialTheme.typography.bodySmall,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        color = TextSecondary
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
 
@@ -272,7 +272,7 @@ private fun ScheduleItem(
                     Icons.Rounded.Edit,
                     contentDescription = stringResource(R.string.edit_schedule),
                     modifier = Modifier.size(16.dp),
-                    tint = TextHint
+                    tint = MaterialTheme.colorScheme.outline
                 )
             }
 
@@ -280,10 +280,10 @@ private fun ScheduleItem(
                 checked = schedule.isEnabled,
                 onCheckedChange = { onToggle() },
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = White,
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                     checkedTrackColor = IndigoPrimary,
-                    uncheckedThumbColor = White,
-                    uncheckedTrackColor = DayChipUnselected
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
             )
         }

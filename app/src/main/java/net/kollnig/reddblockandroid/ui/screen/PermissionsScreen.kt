@@ -85,7 +85,7 @@ fun PermissionsScreen(
             Text(
                 stringResource(R.string.permissions_info),
                 style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(Modifier.height(4.dp))
@@ -163,7 +163,7 @@ private fun PermissionCard(
             containerColor = if (isGranted)
                 MaterialTheme.colorScheme.surface
             else if (isRequired)
-                SoftRedBg
+                MaterialTheme.colorScheme.errorContainer
             else
                 MaterialTheme.colorScheme.surface
         )
@@ -183,7 +183,7 @@ private fun PermissionCard(
                 else if (isRequired)
                     SoftRed.copy(alpha = 0.12f)
                 else
-                    CoolGrey
+                    MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Icon(
@@ -207,7 +207,7 @@ private fun PermissionCard(
                         title,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.SemiBold,
-                        color = TextPrimary
+                        color = MaterialTheme.colorScheme.onSurface
                     )
                     if (isRequired && !isGranted) {
                         Spacer(Modifier.width(8.dp))
@@ -228,7 +228,7 @@ private fun PermissionCard(
                 Text(
                     description,
                     style = MaterialTheme.typography.bodySmall,
-                    color = TextSecondary
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
