@@ -53,7 +53,8 @@ fun HomeScreen(
     var hasBatteryOpt by remember { mutableStateOf(context.isBatteryOptimizationDisabled()) }
 
     var schedules by remember { mutableStateOf(Schedules.getAll()) }
-    var activeSessions by remember { mutableStateOf(Schedules.getActiveSessions()) }
+    // Incremented to force recomposition after schedule state changes
+    var refreshTick by remember { mutableIntStateOf(0) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -116,7 +117,7 @@ fun HomeScreen(
             }
         }
         schedules = Schedules.getAll()
-        activeSessions = Schedules.getActiveSessions()
+        refreshTick++
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -269,7 +270,9 @@ fun HomeScreen(
                 }
             } else {
                 schedules.forEach { schedule ->
-                    val isActive = activeSessions.any { it.scheduleId == schedule.id }
+                    // refreshTick is read here to trigger recomposition
+                    @Suppress("UNUSED_EXPRESSION") refreshTick
+                    val isActive = Schedules.isScheduleActive(schedule.id)
                     ScheduleItem(
                         schedule = schedule,
                         isActive = isActive,

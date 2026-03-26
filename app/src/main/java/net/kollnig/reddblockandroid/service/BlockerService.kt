@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
@@ -17,7 +16,6 @@ import androidx.core.app.NotificationManagerCompat
 import net.kollnig.reddblockandroid.R
 import net.kollnig.reddblockandroid.UnlockActivity
 import net.kollnig.reddblockandroid.schedule.Schedules
-import net.kollnig.reddblockandroid.scheduleWatcher
 import net.kollnig.reddblockandroid.util.BLOCKER_CHANNEL_ID
 import net.kollnig.reddblockandroid.util.NotificationHelper.createNotificationChannel
 import net.kollnig.reddblockandroid.util.isPrefsInitialized
@@ -59,7 +57,6 @@ class BlockerService : AccessibilityService() {
             registerReceiver(scheduleChangeReceiver, filter)
         }
 
-        scheduleWatcher(this)
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -104,7 +101,7 @@ class BlockerService : AccessibilityService() {
             if (pkg != lastBlockedPkg || now - lastBlockedTime >= APP_BLOCK_THROTTLE_MS) {
                 lastBlockedPkg = pkg
                 lastBlockedTime = now
-                Log.d(TAG, "Blocking app $pkg")
+                Log.d(TAG, "Blocking app $pkg by schedule: $blockingSchedule")
                 performGlobalAction(GLOBAL_ACTION_HOME)
                 showAppBlockedNotification(pkg, blockingSchedule.id)
             }

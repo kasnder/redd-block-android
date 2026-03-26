@@ -94,11 +94,8 @@
     <!-- Notifications -->
     <string name="blocker_channel_name">Blocker</string>
     <string name="blocker_channel_desc">Notifications when apps or websites are blocked</string>
-    <string name="schedule_channel_name">Schedules</string>
-    <string name="schedule_channel_desc">Schedule activation and deactivation alerts</string>
-
     <string name="app_blocked">App Blocked</string>
-    <string name="blocked_by_schedule">%s is blocked by an active schedule</string>
+    <string name="blocked_by_schedule">%1$s is blocked by \"%2$s\"</string>
     <string name="website_blocked">Website Blocked</string>
     <string name="website_blocked_by_schedule">%s is blocked by an active schedule</string>
     <string name="tap_to_temporarily_unlock">%s is blocked. Tap here to temporarily unlock it.</string>

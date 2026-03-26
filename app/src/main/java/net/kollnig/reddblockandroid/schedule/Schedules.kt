@@ -6,7 +6,6 @@ import android.util.Log
 import androidx.core.content.edit
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
-import net.kollnig.reddblockandroid.util.NotificationHelper
 import net.kollnig.reddblockandroid.util.prefs
 import org.json.JSONArray
 import org.json.JSONObject
@@ -15,7 +14,14 @@ import java.util.UUID
 
 /**
  * Single, simple schedule system. Supports MULTIPLE active schedules simultaneously.
- * Simplified from Reef: no usage-time limits, apps/websites are simply blocked or not.
+ *
+ * For MANUAL schedules, an explicit session is stored in SharedPreferences so
+ * blocking persists until the user toggles it off.
+ *
+ * For DAILY/WEEKLY schedules, blocking is evaluated in real-time by checking
+ * whether the current time falls within the schedule's time window. No
+ * WorkManager activation/deactivation workers are needed — the accessibility
+ * service checks the time on every event.
  */
 object Schedules {
     private const val TAG = "Schedules"
@@ -61,20 +67,10 @@ object Schedules {
                     val newSchedule = schedule.copy(id = UUID.randomUUID().toString())
                     save(newSchedule, context)
                     count++
-                    
-                    if (newSchedule.isEnabled) {
-                        when (newSchedule.timing.type) {
-                            ScheduleTiming.ScheduleType.MANUAL -> {
-                                startSession(context, newSchedule)
-                            }
-                            ScheduleTiming.ScheduleType.DAILY,
-                            ScheduleTiming.ScheduleType.WEEKLY -> {
-                                if (ScheduleManager.isScheduleActiveNow(newSchedule)) {
-                                    startSession(context, newSchedule)
-                                }
-                                ScheduleManager.scheduleTimedSchedule(context, newSchedule)
-                            }
-                        }
+
+                    // For manual schedules, start a session immediately if enabled
+                    if (newSchedule.isEnabled && newSchedule.timing.type == ScheduleTiming.ScheduleType.MANUAL) {
+                        startSession(context, newSchedule)
                     }
                 }
             }
@@ -96,7 +92,7 @@ object Schedules {
 
         saveAll(schedules)
 
-        // If this schedule has an active session, update its blocked lists
+        // If this is a manual schedule with an active session, update its blocked lists
         val sessions = getActiveSessions().toMutableList()
         val sessionIndex = sessions.indexOfFirst { it.scheduleId == schedule.id }
         if (sessionIndex >= 0) {
@@ -123,9 +119,9 @@ object Schedules {
             return
         }
 
-        val hasActiveSession = getActiveSessions().any { it.scheduleId == id }
+        val isCurrentlyActive = isScheduleActive(id)
 
-        if (schedule.isEnabled && hasActiveSession) {
+        if (schedule.isEnabled && isCurrentlyActive) {
             // Turning OFF
             val updated = if (schedule.autoReenableMinutes > 0) {
                 val disabledUntil = System.currentTimeMillis() + schedule.autoReenableMinutes * 60_000L
@@ -139,10 +135,9 @@ object Schedules {
             if (index >= 0) schedules[index] = updated
             saveAll(schedules)
 
+            // Stop manual session if one exists
             stopSession(context, id)
-            if (updated.timing.type != ScheduleTiming.ScheduleType.MANUAL) {
-                ScheduleManager.cancelSchedule(context, id)
-            }
+            ScheduleManager.cancelSchedule(context, id)
 
             // Schedule auto-re-enable if configured
             if (schedule.autoReenableMinutes > 0) {
@@ -157,20 +152,12 @@ object Schedules {
             if (index >= 0) schedules[index] = updated
             saveAll(schedules)
 
-            when (updated.timing.type) {
-                ScheduleTiming.ScheduleType.MANUAL -> {
-                    startSession(context, updated)
-                }
-                ScheduleTiming.ScheduleType.DAILY,
-                ScheduleTiming.ScheduleType.WEEKLY -> {
-                    if (ScheduleManager.isScheduleActiveNow(updated)) {
-                        startSession(context, updated)
-                    }
-                    ScheduleManager.scheduleTimedSchedule(context, updated)
-                }
+            // Only manual schedules need an explicit session
+            if (updated.timing.type == ScheduleTiming.ScheduleType.MANUAL) {
+                startSession(context, updated)
             }
         } else {
-            // Enabled but no active session — toggle to activate (manual) or just enable scheduling
+            // Enabled but not currently active — toggle to activate (manual only)
             val updated = schedule.copy(isEnabled = true)
 
             val schedules = getAll().toMutableList()
@@ -178,17 +165,8 @@ object Schedules {
             if (index >= 0) schedules[index] = updated
             saveAll(schedules)
 
-            when (updated.timing.type) {
-                ScheduleTiming.ScheduleType.MANUAL -> {
-                    startSession(context, updated)
-                }
-                ScheduleTiming.ScheduleType.DAILY,
-                ScheduleTiming.ScheduleType.WEEKLY -> {
-                    if (ScheduleManager.isScheduleActiveNow(updated)) {
-                        startSession(context, updated)
-                    }
-                    ScheduleManager.scheduleTimedSchedule(context, updated)
-                }
+            if (updated.timing.type == ScheduleTiming.ScheduleType.MANUAL) {
+                startSession(context, updated)
             }
         }
     }
@@ -204,17 +182,9 @@ object Schedules {
         if (index >= 0) schedules[index] = updated
         saveAll(schedules)
 
-        when (updated.timing.type) {
-            ScheduleTiming.ScheduleType.MANUAL -> {
-                startSession(context, updated)
-            }
-            ScheduleTiming.ScheduleType.DAILY,
-            ScheduleTiming.ScheduleType.WEEKLY -> {
-                if (ScheduleManager.isScheduleActiveNow(updated)) {
-                    startSession(context, updated)
-                }
-                ScheduleManager.scheduleTimedSchedule(context, updated)
-            }
+        // Only manual schedules need an explicit session
+        if (updated.timing.type == ScheduleTiming.ScheduleType.MANUAL) {
+            startSession(context, updated)
         }
     }
 
@@ -243,20 +213,17 @@ object Schedules {
         Log.d(TAG, "Started session for ${schedule.name} with ${schedule.blockedApps.size} blocked apps and ${schedule.blockedWebsites.size} blocked websites")
 
         broadcast(context)
-        NotificationHelper.showScheduleActivatedNotification(context, schedule)
     }
 
     fun stopSession(context: Context, scheduleId: String) {
         Log.d(TAG, "Stopping session for schedule: $scheduleId")
 
-        val schedule = get(scheduleId)
         val sessions = getActiveSessions().toMutableList()
         val removed = sessions.removeAll { it.scheduleId == scheduleId }
 
         if (removed) {
             saveActiveSessions(sessions)
             broadcast(context)
-            schedule?.let { NotificationHelper.showScheduleDeactivatedNotification(context, it) }
         }
     }
 
@@ -315,6 +282,10 @@ object Schedules {
 
     /**
      * Check if an app is blocked by ANY active schedule.
+     * Returns the name of the blocking schedule, or null if not blocked.
+     *
+     * For MANUAL schedules: checks active sessions.
+     * For DAILY/WEEKLY schedules: evaluates the time window in real-time.
      */
     fun isAppBlocked(packageName: String): Boolean {
         return findBlockingScheduleForApp(packageName) != null
@@ -338,6 +309,7 @@ object Schedules {
 
     /**
      * Check if a website domain is blocked by ANY active schedule.
+     * Returns the name of the blocking schedule, or null if not blocked.
      */
     fun isWebsiteBlocked(domain: String): Boolean {
         return findBlockingScheduleForWebsite(domain) != null
@@ -362,17 +334,37 @@ object Schedules {
     }
 
     /**
-     * Check if any schedule is currently active (has an active session).
+     * Check if any schedule is currently active.
      */
     fun isAnyScheduleActive(): Boolean {
-        return getActiveSessions().isNotEmpty()
+        val allSchedules = getAll().filter { it.isEnabled }
+        val manualSessions = getActiveSessions()
+
+        return allSchedules.any { schedule ->
+            when (schedule.timing.type) {
+                ScheduleTiming.ScheduleType.MANUAL ->
+                    manualSessions.any { it.scheduleId == schedule.id }
+                ScheduleTiming.ScheduleType.DAILY,
+                ScheduleTiming.ScheduleType.WEEKLY ->
+                    ScheduleManager.isScheduleActiveNow(schedule)
+            }
+        }
     }
 
     /**
      * Check if a specific schedule is currently active.
      */
     fun isScheduleActive(scheduleId: String): Boolean {
-        return getActiveSessions().any { it.scheduleId == scheduleId }
+        val schedule = get(scheduleId) ?: return false
+        if (!schedule.isEnabled) return false
+
+        return when (schedule.timing.type) {
+            ScheduleTiming.ScheduleType.MANUAL ->
+                getActiveSessions().any { it.scheduleId == scheduleId }
+            ScheduleTiming.ScheduleType.DAILY,
+            ScheduleTiming.ScheduleType.WEEKLY ->
+                ScheduleManager.isScheduleActiveNow(schedule)
+        }
     }
 
     private fun broadcast(context: Context) {

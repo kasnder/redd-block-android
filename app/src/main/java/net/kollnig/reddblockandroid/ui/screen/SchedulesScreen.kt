@@ -42,7 +42,7 @@ fun SchedulesScreen(
 ) {
     val context = LocalContext.current
     var schedules by remember { mutableStateOf(Schedules.getAll()) }
-    val activeSessions = remember { mutableStateOf(Schedules.getActiveSessions()) }
+    var refreshTick by remember { mutableIntStateOf(0) }
 
     fun refreshSchedules() {
         val now = System.currentTimeMillis()
@@ -53,7 +53,7 @@ fun SchedulesScreen(
             }
         }
         schedules = Schedules.getAll()
-        activeSessions.value = Schedules.getActiveSessions()
+        refreshTick++
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -145,7 +145,8 @@ fun SchedulesScreen(
                     )
                 }
                 items(schedules, key = { it.id }) { schedule ->
-                    val isActive = activeSessions.value.any { it.scheduleId == schedule.id }
+                    @Suppress("UNUSED_EXPRESSION") refreshTick
+                    val isActive = Schedules.isScheduleActive(schedule.id)
                     ScheduleItem(
                             schedule = schedule,
                             isActive = isActive,

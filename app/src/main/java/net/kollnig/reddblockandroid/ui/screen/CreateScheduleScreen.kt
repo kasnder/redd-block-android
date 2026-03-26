@@ -35,7 +35,6 @@ import kotlinx.coroutines.withContext
 import net.kollnig.reddblockandroid.R
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
-import net.kollnig.reddblockandroid.schedule.ScheduleManager
 import net.kollnig.reddblockandroid.schedule.Schedules
 import net.kollnig.reddblockandroid.ui.theme.*
 import java.time.DayOfWeek
@@ -132,10 +131,6 @@ fun CreateScheduleScreen(
         )
 
         Schedules.save(schedule, context)
-
-        if (scheduleType != ScheduleTiming.ScheduleType.MANUAL) {
-            ScheduleManager.scheduleTimedSchedule(context, schedule)
-        }
 
         onSaveComplete()
     }
@@ -652,7 +647,6 @@ fun CreateScheduleScreen(
             confirmButton = {
                 TextButton(onClick = {
                     Schedules.delete(existingSchedule.id, context)
-                    ScheduleManager.cancelSchedule(context, existingSchedule.id)
                     showDeleteDialog = false
                     onSaveComplete()
                 }) {
