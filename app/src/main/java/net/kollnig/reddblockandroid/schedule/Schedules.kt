@@ -1,7 +1,6 @@
 package net.kollnig.reddblockandroid.schedule
 
 import android.content.Context
-import android.content.Intent
 import android.util.Log
 import androidx.core.content.edit
 import net.kollnig.reddblockandroid.data.Schedule
@@ -27,8 +26,6 @@ object Schedules {
     private const val TAG = "Schedules"
     private const val SCHEDULES_KEY = "routines" // keep legacy key for data compat
     private const val ACTIVE_SESSIONS_KEY = "active_routine_sessions" // keep legacy key
-
-    const val ACTION_CHANGED = "net.kollnig.reddblockandroid.SCHEDULE_CHANGED"
 
     data class ActiveSession(
         val scheduleId: String,
@@ -101,7 +98,7 @@ object Schedules {
                 blockedWebsites = schedule.blockedWebsites.toSet()
             )
             saveActiveSessions(sessions)
-            broadcast(context)
+    
         }
     }
 
@@ -212,7 +209,7 @@ object Schedules {
 
         Log.d(TAG, "Started session for ${schedule.name} with ${schedule.blockedApps.size} blocked apps and ${schedule.blockedWebsites.size} blocked websites")
 
-        broadcast(context)
+
     }
 
     fun stopSession(context: Context, scheduleId: String) {
@@ -223,7 +220,7 @@ object Schedules {
 
         if (removed) {
             saveActiveSessions(sessions)
-            broadcast(context)
+    
         }
     }
 
@@ -334,24 +331,6 @@ object Schedules {
     }
 
     /**
-     * Check if any schedule is currently active.
-     */
-    fun isAnyScheduleActive(): Boolean {
-        val allSchedules = getAll().filter { it.isEnabled }
-        val manualSessions = getActiveSessions()
-
-        return allSchedules.any { schedule ->
-            when (schedule.timing.type) {
-                ScheduleTiming.ScheduleType.MANUAL ->
-                    manualSessions.any { it.scheduleId == schedule.id }
-                ScheduleTiming.ScheduleType.DAILY,
-                ScheduleTiming.ScheduleType.WEEKLY ->
-                    ScheduleManager.isScheduleActiveNow(schedule)
-            }
-        }
-    }
-
-    /**
      * Check if a specific schedule is currently active.
      */
     fun isScheduleActive(scheduleId: String): Boolean {
@@ -365,12 +344,6 @@ object Schedules {
             ScheduleTiming.ScheduleType.WEEKLY ->
                 ScheduleManager.isScheduleActiveNow(schedule)
         }
-    }
-
-    private fun broadcast(context: Context) {
-        context.sendBroadcast(Intent(ACTION_CHANGED).apply {
-            setPackage(context.packageName)
-        })
     }
 
     fun createDefaults(): List<Schedule> = listOf(

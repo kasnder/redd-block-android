@@ -6,9 +6,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.os.Build
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import androidx.core.app.NotificationCompat
@@ -17,6 +15,7 @@ import net.kollnig.reddblockandroid.R
 import net.kollnig.reddblockandroid.UnlockActivity
 import net.kollnig.reddblockandroid.schedule.Schedules
 import net.kollnig.reddblockandroid.util.BLOCKER_CHANNEL_ID
+
 import net.kollnig.reddblockandroid.util.NotificationHelper.createNotificationChannel
 import net.kollnig.reddblockandroid.util.isPrefsInitialized
 import net.kollnig.reddblockandroid.util.prefs
@@ -24,14 +23,6 @@ import androidx.core.net.toUri
 
 @SuppressLint("AccessibilityPolicy")
 class BlockerService : AccessibilityService() {
-
-    private val scheduleChangeReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context?, intent: Intent?) {
-            if (intent?.action == Schedules.ACTION_CHANGED) {
-                Log.d(TAG, "Schedule state changed")
-            }
-        }
-    }
 
     private var lastCheckedUrl: String? = null
     private var lastUrlCheckTime: Long = 0
@@ -49,14 +40,6 @@ class BlockerService : AccessibilityService() {
             val deviceContext = createDeviceProtectedStorageContext()
             prefs = deviceContext.getSharedPreferences("prefs", MODE_PRIVATE)
         }
-
-        val filter = IntentFilter(Schedules.ACTION_CHANGED)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            registerReceiver(scheduleChangeReceiver, filter, RECEIVER_NOT_EXPORTED)
-        } else {
-            registerReceiver(scheduleChangeReceiver, filter)
-        }
-
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -353,15 +336,6 @@ class BlockerService : AccessibilityService() {
     }
 
     override fun onInterrupt() {}
-
-    override fun onDestroy() {
-        super.onDestroy()
-        try {
-            unregisterReceiver(scheduleChangeReceiver)
-        } catch (e: Exception) {
-            Log.e(TAG, "Error unregistering receiver", e)
-        }
-    }
 
     companion object {
         private const val TAG = "BlockerService"
