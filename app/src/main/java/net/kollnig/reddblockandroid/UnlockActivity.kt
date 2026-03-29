@@ -1,5 +1,7 @@
 package net.kollnig.reddblockandroid
 
+import android.content.Intent
+import android.net.Uri
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,11 +14,18 @@ import net.kollnig.reddblockandroid.ui.theme.ReDDBlockAndroidTheme
  * Standalone activity launched from blocked-notification actions.
  * Shows the friction gate; on completion, temporarily disables the
  * schedule that caused the block.
+ *
+ * If [EXTRA_BLOCKED_PACKAGE] is set the blocked app is relaunched
+ * after the gate is passed so the user lands back where they were.
+ * If [EXTRA_BLOCKED_DOMAIN] is set the blocked website is opened
+ * in the default browser after the gate is passed.
  */
 class UnlockActivity : ComponentActivity() {
 
     companion object {
         const val EXTRA_SCHEDULE_ID = "schedule_id"
+        const val EXTRA_BLOCKED_PACKAGE = "blocked_package"
+        const val EXTRA_BLOCKED_DOMAIN = "blocked_domain"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -24,6 +33,8 @@ class UnlockActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         val scheduleId = intent.getStringExtra(EXTRA_SCHEDULE_ID)
+        val blockedPackage = intent.getStringExtra(EXTRA_BLOCKED_PACKAGE)
+        val blockedDomain = intent.getStringExtra(EXTRA_BLOCKED_DOMAIN)
         val schedule = scheduleId?.let { Schedules.get(it) }
 
         if (schedule == null || !schedule.isEnabled) {
@@ -31,12 +42,28 @@ class UnlockActivity : ComponentActivity() {
             return
         }
 
+        // Resolve a human-readable label for the return target
+        val returnTargetLabel = when {
+            blockedPackage != null -> getAppLabel(blockedPackage)
+            blockedDomain != null -> blockedDomain
+            else -> null
+        }
+
         setContent {
             ReDDBlockAndroidTheme {
                 FrictionGateScreen(
                     wordCount = schedule.frictionWordCount,
+                    returnTargetLabel = returnTargetLabel,
                     onPassed = {
+                        // Just unlock, don't return to blocked content
                         Schedules.toggle(schedule.id, this@UnlockActivity)
+                        finish()
+                    },
+                    onPassedAndReturn = {
+                        // Unlock and return to the blocked app/website
+                        Schedules.toggle(schedule.id, this@UnlockActivity)
+                        relaunchBlockedApp(blockedPackage)
+                        openBlockedWebsite(blockedDomain)
                         finish()
                     },
                     onBackPressed = {
@@ -44,6 +71,41 @@ class UnlockActivity : ComponentActivity() {
                     }
                 )
             }
+        }
+    }
+
+    private fun getAppLabel(packageName: String): String {
+        return try {
+            packageManager.getApplicationLabel(
+                packageManager.getApplicationInfo(packageName, 0)
+            ).toString()
+        } catch (_: Exception) {
+            packageName
+        }
+    }
+
+    private fun relaunchBlockedApp(packageName: String?) {
+        if (packageName.isNullOrBlank()) return
+        try {
+            val launchIntent = packageManager.getLaunchIntentForPackage(packageName) ?: return
+            launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(launchIntent)
+        } catch (_: Exception) {
+            // Package not found or uninstalled — silently ignore
+        }
+    }
+
+    private fun openBlockedWebsite(domain: String?) {
+        if (domain.isNullOrBlank()) return
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://$domain")).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            if (intent.resolveActivity(packageManager) != null) {
+                startActivity(intent)
+            }
+        } catch (_: Exception) {
+            // Malformed domain or no browser available — silently ignore
         }
     }
 }

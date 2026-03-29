@@ -292,14 +292,21 @@ object Schedules {
      * Find the schedule that blocks an app, or null if not blocked.
      */
     fun findBlockingScheduleForApp(packageName: String): Schedule? {
+        val allSchedules = getAll().filter { it.isEnabled }
         val sessions = getActiveSessions()
-        if (sessions.isEmpty()) return null
 
-        for (session in sessions) {
-            val schedule = get(session.scheduleId) ?: continue
-            val maxDuration = ScheduleManager.getMaxScheduleDuration(schedule.timing)
-            if (System.currentTimeMillis() - session.startTime > maxDuration) continue
-            if (session.blockedApps.contains(packageName)) return schedule
+        for (schedule in allSchedules) {
+            if (!schedule.blockedApps.contains(packageName)) continue
+
+            when (schedule.timing.type) {
+                ScheduleTiming.ScheduleType.MANUAL -> {
+                    if (sessions.any { it.scheduleId == schedule.id }) return schedule
+                }
+                ScheduleTiming.ScheduleType.DAILY,
+                ScheduleTiming.ScheduleType.WEEKLY -> {
+                    if (ScheduleManager.isScheduleActiveNow(schedule)) return schedule
+                }
+            }
         }
         return null
     }
@@ -316,16 +323,24 @@ object Schedules {
      * Find the schedule that blocks a website domain, or null if not blocked.
      */
     fun findBlockingScheduleForWebsite(domain: String): Schedule? {
+        val allSchedules = getAll().filter { it.isEnabled }
         val sessions = getActiveSessions()
-        if (sessions.isEmpty()) return null
 
-        for (session in sessions) {
-            val schedule = get(session.scheduleId) ?: continue
-            val maxDuration = ScheduleManager.getMaxScheduleDuration(schedule.timing)
-            if (System.currentTimeMillis() - session.startTime > maxDuration) continue
-            if (session.blockedWebsites.any { blocked ->
-                    domain == blocked || domain.endsWith(".$blocked")
-                }) return schedule
+        for (schedule in allSchedules) {
+            val matchesDomain = schedule.blockedWebsites.any { blocked ->
+                domain == blocked || domain.endsWith(".$blocked")
+            }
+            if (!matchesDomain) continue
+
+            when (schedule.timing.type) {
+                ScheduleTiming.ScheduleType.MANUAL -> {
+                    if (sessions.any { it.scheduleId == schedule.id }) return schedule
+                }
+                ScheduleTiming.ScheduleType.DAILY,
+                ScheduleTiming.ScheduleType.WEEKLY -> {
+                    if (ScheduleManager.isScheduleActiveNow(schedule)) return schedule
+                }
+            }
         }
         return null
     }

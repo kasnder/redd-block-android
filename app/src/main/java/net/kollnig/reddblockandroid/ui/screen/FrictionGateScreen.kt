@@ -48,12 +48,23 @@ private val WORD_LIST = listOf(
     "parent", "random", "simple", "travel", "update", "vision", "weekly"
 )
 
+/**
+ * @param returnTargetLabel  When non-null, a second "Unlock & return to ..." button
+ *   is shown after the gate is passed (e.g. the blocked app name or website domain).
+ *   When null the gate behaves as before - a single action on completion.
+ * @param onPassed           Called when the user chooses "Just unlock" (or when
+ *   there is no return target and the gate is passed).
+ * @param onPassedAndReturn  Called when the user chooses "Unlock & return to ...".
+ *   Only meaningful when [returnTargetLabel] is non-null.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FrictionGateScreen(
     wordCount: Int,
     onPassed: () -> Unit,
-    onBackPressed: () -> Unit
+    onBackPressed: () -> Unit,
+    returnTargetLabel: String? = null,
+    onPassedAndReturn: (() -> Unit)? = null
 ) {
     val words = remember {
         WORD_LIST.shuffled().take(wordCount)
@@ -62,6 +73,7 @@ fun FrictionGateScreen(
     var currentWordIndex by remember { mutableIntStateOf(0) }
     var userInput by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
+    var gatePassed by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -77,7 +89,13 @@ fun FrictionGateScreen(
         if (userInput.trim().equals(words[currentWordIndex], ignoreCase = true)) {
             isError = false
             if (currentWordIndex >= words.lastIndex) {
-                onPassed()
+                if (returnTargetLabel != null && onPassedAndReturn != null) {
+                    // Show completion screen with two choices
+                    gatePassed = true
+                    keyboardController?.hide()
+                } else {
+                    onPassed()
+                }
             } else {
                 currentWordIndex++
                 userInput = ""
@@ -98,8 +116,10 @@ fun FrictionGateScreen(
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBackPressed) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
+                    if (!gatePassed) {
+                        IconButton(onClick = onBackPressed) {
+                            Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -108,169 +128,246 @@ fun FrictionGateScreen(
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Spacer(Modifier.height(8.dp))
-
-            // Progress indicator
-            LinearProgressIndicator(
-                progress = { (currentWordIndex.toFloat()) / words.size },
-                modifier = Modifier.fillMaxWidth(),
-                trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                color = IndigoPrimary,
-            )
-
-            Text(
-                stringResource(R.string.friction_gate_progress, currentWordIndex + 1, words.size),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            // ── Override card (iOS-style dialog look) ──
-            Card(
+        if (gatePassed) {
+            // -- Completion screen with two choices --
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(4.dp, RoundedCornerShape(16.dp)),
-                shape = RoundedCornerShape(16.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                Icon(
+                    Icons.Rounded.CheckCircle,
+                    contentDescription = null,
+                    modifier = Modifier.size(64.dp),
+                    tint = IndigoPrimary
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                Text(
+                    stringResource(R.string.gate_passed_title),
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(Modifier.height(8.dp))
+
+                Text(
+                    stringResource(R.string.gate_passed_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(Modifier.height(32.dp))
+
+                // Primary: unlock & return to blocked content
+                Button(
+                    onClick = { onPassedAndReturn?.invoke() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
                 ) {
-                    // Title
                     Text(
-                        stringResource(R.string.friction_gate_title),
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        stringResource(R.string.unlock_and_return, returnTargetLabel ?: ""),
+                        fontWeight = FontWeight.Bold
                     )
+                }
 
-                    // Instruction
+                Spacer(Modifier.height(12.dp))
+
+                // Secondary: just unlock, don't return
+                OutlinedButton(
+                    onClick = onPassed,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(10.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = MaterialTheme.colorScheme.onSurface
+                    )
+                ) {
                     Text(
-                        stringResource(R.string.override_instruction),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        stringResource(R.string.just_unlock),
+                        fontWeight = FontWeight.SemiBold
                     )
+                }
+            }
+        } else {
+            // -- Word typing challenge --
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Spacer(Modifier.height(8.dp))
 
-                    // Challenge phrase in monospace code block
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant
+                // Progress indicator
+                LinearProgressIndicator(
+                    progress = { (currentWordIndex.toFloat()) / words.size },
+                    modifier = Modifier.fillMaxWidth(),
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                    color = IndigoPrimary,
+                )
+
+                Text(
+                    stringResource(R.string.friction_gate_progress, currentWordIndex + 1, words.size),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                // -- Override card (iOS-style dialog look) --
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(4.dp, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(20.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
+                        // Title
                         Text(
-                            challengePhrase,
-                            modifier = Modifier.padding(14.dp),
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 14.sp,
-                            lineHeight = 22.sp,
+                            stringResource(R.string.friction_gate_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onSurface
                         )
-                    }
 
-                    // Current word highlight
-                    Text(
-                        stringResource(R.string.friction_gate_progress, currentWordIndex + 1, words.size),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-
-                    // Word to type
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp),
-                        color = IndigoPrimary.copy(alpha = 0.08f)
-                    ) {
+                        // Instruction
                         Text(
-                            words[currentWordIndex],
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            style = MaterialTheme.typography.headlineSmall,
-                            fontWeight = FontWeight.Bold,
-                            textAlign = TextAlign.Center,
-                            color = IndigoPrimary
+                            stringResource(R.string.override_instruction),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
 
-                    // Input field
-                    OutlinedTextField(
-                        value = userInput,
-                        onValueChange = {
-                            userInput = it
-                            isError = false
-                        },
-                        placeholder = { Text(stringResource(R.string.type_here_hint), color = TextHint) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(focusRequester),
-                        shape = RoundedCornerShape(10.dp),
-                        singleLine = true,
-                        isError = isError,
-                        supportingText = if (isError) {
-                            { Text(stringResource(R.string.friction_gate_error)) }
-                        } else null,
-                        keyboardOptions = KeyboardOptions(
-                            imeAction = ImeAction.Done,
-                            autoCorrectEnabled = false,
-                            keyboardType = KeyboardType.Password
-                        ),
-                        keyboardActions = KeyboardActions(onDone = { checkWord() }),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                        )
-                    )
-
-                    // Buttons row
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        OutlinedButton(
-                            onClick = onBackPressed,
-                            modifier = Modifier.weight(1f).height(48.dp),
+                        // Challenge phrase in monospace code block
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp),
-                            colors = ButtonDefaults.outlinedButtonColors(
-                                contentColor = MaterialTheme.colorScheme.onSurface
-                            )
+                            color = MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Text(
-                                stringResource(R.string.cancel),
-                                fontWeight = FontWeight.SemiBold
+                                challengePhrase,
+                                modifier = Modifier.padding(14.dp),
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 14.sp,
+                                lineHeight = 22.sp,
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
 
-                        Button(
-                            onClick = { checkWord() },
-                            modifier = Modifier.weight(1f).height(48.dp),
+                        // Current word highlight
+                        Text(
+                            stringResource(R.string.friction_gate_progress, currentWordIndex + 1, words.size),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+
+                        // Word to type
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp),
-                            enabled = userInput.isNotBlank(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = MaterialTheme.colorScheme.primary,
-                                contentColor = MaterialTheme.colorScheme.onPrimary
-                            )
+                            color = IndigoPrimary.copy(alpha = 0.08f)
                         ) {
                             Text(
-                                if (currentWordIndex >= words.lastIndex) stringResource(R.string.override_button)
-                                else stringResource(R.string.friction_gate_next),
-                                fontWeight = FontWeight.Bold
+                                words[currentWordIndex],
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                color = IndigoPrimary
                             )
+                        }
+
+                        // Input field
+                        OutlinedTextField(
+                            value = userInput,
+                            onValueChange = {
+                                userInput = it
+                                isError = false
+                            },
+                            placeholder = { Text(stringResource(R.string.type_here_hint), color = TextHint) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(focusRequester),
+                            shape = RoundedCornerShape(10.dp),
+                            singleLine = true,
+                            isError = isError,
+                            supportingText = if (isError) {
+                                { Text(stringResource(R.string.friction_gate_error)) }
+                            } else null,
+                            keyboardOptions = KeyboardOptions(
+                                imeAction = ImeAction.Done,
+                                autoCorrectEnabled = false,
+                                keyboardType = KeyboardType.Password
+                            ),
+                            keyboardActions = KeyboardActions(onDone = { checkWord() }),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                            )
+                        )
+
+                        // Buttons row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            OutlinedButton(
+                                onClick = onBackPressed,
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                )
+                            ) {
+                                Text(
+                                    stringResource(R.string.cancel),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+
+                            Button(
+                                onClick = { checkWord() },
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                enabled = userInput.isNotBlank(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            ) {
+                                Text(
+                                    if (currentWordIndex >= words.lastIndex) stringResource(R.string.override_button)
+                                    else stringResource(R.string.friction_gate_next),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(32.dp))
+            }
         }
     }
 }

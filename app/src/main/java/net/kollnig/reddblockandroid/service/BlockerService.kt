@@ -266,9 +266,20 @@ class BlockerService : AccessibilityService() {
         }
     }
 
-    private fun buildUnlockPendingIntent(scheduleId: String, requestCode: Int): PendingIntent {
+    private fun buildUnlockPendingIntent(
+        scheduleId: String,
+        requestCode: Int,
+        blockedPackage: String? = null,
+        blockedDomain: String? = null
+    ): PendingIntent {
         val intent = Intent(this, UnlockActivity::class.java).apply {
             putExtra(UnlockActivity.EXTRA_SCHEDULE_ID, scheduleId)
+            if (blockedPackage != null) {
+                putExtra(UnlockActivity.EXTRA_BLOCKED_PACKAGE, blockedPackage)
+            }
+            if (blockedDomain != null) {
+                putExtra(UnlockActivity.EXTRA_BLOCKED_DOMAIN, blockedDomain)
+            }
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         return PendingIntent.getActivity(
@@ -289,14 +300,16 @@ class BlockerService : AccessibilityService() {
             pkg
         }
 
-        val unlockPendingIntent = buildUnlockPendingIntent(scheduleId, pkg.hashCode())
+        val schedule = Schedules.get(scheduleId)
+        val durationText = formatUnlockDuration(schedule?.autoReenableMinutes)
+        val unlockPendingIntent = buildUnlockPendingIntent(scheduleId, pkg.hashCode(), blockedPackage = pkg)
 
+        val bodyText = getString(R.string.tap_to_temporarily_unlock_duration, appName, durationText)
         val notification = NotificationCompat.Builder(this, BLOCKER_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_block)
             .setContentTitle(getString(R.string.app_blocked))
-            .setContentText(getString(R.string.tap_to_temporarily_unlock, appName))
-            .setStyle(NotificationCompat.BigTextStyle()
-                .bigText(getString(R.string.tap_to_temporarily_unlock, appName)))
+            .setContentText(bodyText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(unlockPendingIntent)
@@ -314,14 +327,16 @@ class BlockerService : AccessibilityService() {
     private fun showWebsiteBlockedNotification(domain: String, scheduleId: String) {
         if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
 
-        val unlockPendingIntent = buildUnlockPendingIntent(scheduleId, domain.hashCode())
+        val schedule = Schedules.get(scheduleId)
+        val durationText = formatUnlockDuration(schedule?.autoReenableMinutes)
+        val unlockPendingIntent = buildUnlockPendingIntent(scheduleId, domain.hashCode(), blockedDomain = domain)
 
+        val bodyText = getString(R.string.tap_to_temporarily_unlock_duration, domain, durationText)
         val notification = NotificationCompat.Builder(this, BLOCKER_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_block)
             .setContentTitle(getString(R.string.website_blocked))
-            .setContentText(getString(R.string.tap_to_temporarily_unlock, domain))
-            .setStyle(NotificationCompat.BigTextStyle()
-                .bigText(getString(R.string.tap_to_temporarily_unlock, domain)))
+            .setContentText(bodyText)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
             .setContentIntent(unlockPendingIntent)
@@ -333,6 +348,19 @@ class BlockerService : AccessibilityService() {
             .build()
 
         NotificationManagerCompat.from(this).notify(domain.hashCode(), notification)
+    }
+
+    private fun formatUnlockDuration(autoReenableMinutes: Int?): String {
+        if (autoReenableMinutes == null || autoReenableMinutes <= 0) {
+            return getString(R.string.duration_until_reenabled)
+        }
+        val hours = autoReenableMinutes / 60
+        val minutes = autoReenableMinutes % 60
+        return when {
+            hours > 0 && minutes > 0 -> getString(R.string.duration_hours_minutes, hours, minutes)
+            hours > 0 -> resources.getQuantityString(R.plurals.duration_hours, hours, hours)
+            else -> resources.getQuantityString(R.plurals.duration_minutes, minutes, minutes)
+        }
     }
 
     override fun onInterrupt() {}
