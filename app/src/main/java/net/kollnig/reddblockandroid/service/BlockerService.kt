@@ -2,6 +2,7 @@ package net.kollnig.reddblockandroid.service
 
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
+import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
@@ -14,6 +15,7 @@ import android.view.accessibility.AccessibilityEvent
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import net.kollnig.reddblockandroid.R
+import net.kollnig.reddblockandroid.UnlockActivity
 import net.kollnig.reddblockandroid.schedule.Schedules
 import net.kollnig.reddblockandroid.scheduleWatcher
 import net.kollnig.reddblockandroid.util.BLOCKER_CHANNEL_ID
@@ -79,11 +81,14 @@ class BlockerService : AccessibilityService() {
                     if (url != lastCheckedUrl) {
                         lastCheckedUrl = url
                         val domain = extractDomain(url)
-                        if (domain != null && Schedules.isWebsiteBlocked(domain)) {
-                            Log.d(TAG, "Blocking website $domain in browser ($pkg)")
-                            navigateBrowserToBlank(pkg)
-                            showWebsiteBlockedNotification(domain)
-                            return
+                        if (domain != null) {
+                            val blockingSchedule = Schedules.findBlockingScheduleForWebsite(domain)
+                            if (blockingSchedule != null) {
+                                Log.d(TAG, "Blocking website $domain in browser ($pkg)")
+                                navigateBrowserToBlank(pkg)
+                                showWebsiteBlockedNotification(domain, blockingSchedule.id)
+                                return
+                            }
                         }
                     }
                 }
@@ -93,14 +98,15 @@ class BlockerService : AccessibilityService() {
         // Check app blocking
         if (shouldSkipPackage(pkg)) return
 
-        if (Schedules.isAppBlocked(pkg)) {
+        val blockingSchedule = Schedules.findBlockingScheduleForApp(pkg)
+        if (blockingSchedule != null) {
             val now = System.currentTimeMillis()
             if (pkg != lastBlockedPkg || now - lastBlockedTime >= APP_BLOCK_THROTTLE_MS) {
                 lastBlockedPkg = pkg
                 lastBlockedTime = now
                 Log.d(TAG, "Blocking app $pkg")
                 performGlobalAction(GLOBAL_ACTION_HOME)
-                showAppBlockedNotification(pkg)
+                showAppBlockedNotification(pkg, blockingSchedule.id)
             }
         }
     }
@@ -280,8 +286,19 @@ class BlockerService : AccessibilityService() {
         }
     }
 
+    private fun buildUnlockPendingIntent(scheduleId: String, requestCode: Int): PendingIntent {
+        val intent = Intent(this, UnlockActivity::class.java).apply {
+            putExtra(UnlockActivity.EXTRA_SCHEDULE_ID, scheduleId)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        return PendingIntent.getActivity(
+            this, requestCode, intent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        )
+    }
+
     @SuppressLint("MissingPermission")
-    private fun showAppBlockedNotification(pkg: String) {
+    private fun showAppBlockedNotification(pkg: String, scheduleId: String) {
         if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
 
         val appName = try {
@@ -292,27 +309,47 @@ class BlockerService : AccessibilityService() {
             pkg
         }
 
+        val unlockPendingIntent = buildUnlockPendingIntent(scheduleId, pkg.hashCode())
+
         val notification = NotificationCompat.Builder(this, BLOCKER_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_block)
             .setContentTitle(getString(R.string.app_blocked))
-            .setContentText(getString(R.string.blocked_by_schedule, appName))
+            .setContentText(getString(R.string.tap_to_temporarily_unlock, appName))
+            .setStyle(NotificationCompat.BigTextStyle()
+                .bigText(getString(R.string.tap_to_temporarily_unlock, appName)))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
+            .setContentIntent(unlockPendingIntent)
+            .addAction(
+                R.drawable.ic_block,
+                getString(R.string.temporarily_disable),
+                unlockPendingIntent
+            )
             .build()
 
         NotificationManagerCompat.from(this).notify(pkg.hashCode(), notification)
     }
 
     @SuppressLint("MissingPermission")
-    private fun showWebsiteBlockedNotification(domain: String) {
+    private fun showWebsiteBlockedNotification(domain: String, scheduleId: String) {
         if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
+
+        val unlockPendingIntent = buildUnlockPendingIntent(scheduleId, domain.hashCode())
 
         val notification = NotificationCompat.Builder(this, BLOCKER_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_block)
             .setContentTitle(getString(R.string.website_blocked))
-            .setContentText(getString(R.string.website_blocked_by_schedule, domain))
+            .setContentText(getString(R.string.tap_to_temporarily_unlock, domain))
+            .setStyle(NotificationCompat.BigTextStyle()
+                .bigText(getString(R.string.tap_to_temporarily_unlock, domain)))
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setAutoCancel(true)
+            .setContentIntent(unlockPendingIntent)
+            .addAction(
+                R.drawable.ic_block,
+                getString(R.string.temporarily_disable),
+                unlockPendingIntent
+            )
             .build()
 
         NotificationManagerCompat.from(this).notify(domain.hashCode(), notification)

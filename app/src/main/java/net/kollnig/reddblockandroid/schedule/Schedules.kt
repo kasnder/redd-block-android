@@ -317,32 +317,48 @@ object Schedules {
      * Check if an app is blocked by ANY active schedule.
      */
     fun isAppBlocked(packageName: String): Boolean {
-        val sessions = getActiveSessions()
-        if (sessions.isEmpty()) return false
+        return findBlockingScheduleForApp(packageName) != null
+    }
 
-        return sessions.any { session ->
-            val schedule = get(session.scheduleId) ?: return@any false
+    /**
+     * Find the schedule that blocks an app, or null if not blocked.
+     */
+    fun findBlockingScheduleForApp(packageName: String): Schedule? {
+        val sessions = getActiveSessions()
+        if (sessions.isEmpty()) return null
+
+        for (session in sessions) {
+            val schedule = get(session.scheduleId) ?: continue
             val maxDuration = ScheduleManager.getMaxScheduleDuration(schedule.timing)
-            if (System.currentTimeMillis() - session.startTime > maxDuration) return@any false
-            session.blockedApps.contains(packageName)
+            if (System.currentTimeMillis() - session.startTime > maxDuration) continue
+            if (session.blockedApps.contains(packageName)) return schedule
         }
+        return null
     }
 
     /**
      * Check if a website domain is blocked by ANY active schedule.
      */
     fun isWebsiteBlocked(domain: String): Boolean {
-        val sessions = getActiveSessions()
-        if (sessions.isEmpty()) return false
+        return findBlockingScheduleForWebsite(domain) != null
+    }
 
-        return sessions.any { session ->
-            val schedule = get(session.scheduleId) ?: return@any false
+    /**
+     * Find the schedule that blocks a website domain, or null if not blocked.
+     */
+    fun findBlockingScheduleForWebsite(domain: String): Schedule? {
+        val sessions = getActiveSessions()
+        if (sessions.isEmpty()) return null
+
+        for (session in sessions) {
+            val schedule = get(session.scheduleId) ?: continue
             val maxDuration = ScheduleManager.getMaxScheduleDuration(schedule.timing)
-            if (System.currentTimeMillis() - session.startTime > maxDuration) return@any false
-            session.blockedWebsites.any { blocked ->
-                domain == blocked || domain.endsWith(".$blocked")
-            }
+            if (System.currentTimeMillis() - session.startTime > maxDuration) continue
+            if (session.blockedWebsites.any { blocked ->
+                    domain == blocked || domain.endsWith(".$blocked")
+                }) return schedule
         }
+        return null
     }
 
     /**
