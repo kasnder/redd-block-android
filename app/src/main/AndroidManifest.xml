@@ -39,6 +39,12 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".UnlockActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.ReDDBlockAndroid" />
+
         <service
             android:name=".service.BlockerService"
             android:directBootAware="true"
