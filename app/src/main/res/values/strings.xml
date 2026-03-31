@@ -96,7 +96,8 @@
     <string name="required">REQUIRED</string>
 
     <!-- Notifications -->
-    <string name="blocker_channel_name">Blocker</string>
+    <string name="blocker_group_name">Blocking</string>
+    <string name="blocker_channel_name">Blocked apps &amp; websites</string>
     <string name="blocker_channel_desc">Notifications when apps or websites are blocked</string>
     <string name="app_blocked">App Blocked</string>
     <string name="blocked_by_schedule">%1$s is blocked by \"%2$s\"</string>
