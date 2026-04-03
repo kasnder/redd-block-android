@@ -32,7 +32,7 @@ import net.kollnig.reddblockandroid.ui.theme.*
 private val WORD_LIST = listOf(
     "apple", "bridge", "candle", "desert", "eagle", "forest", "garden",
     "harbor", "island", "jungle", "kitchen", "lemon", "mirror", "needle",
-    "orange", "palace", "public", "river", "silver", "temple", "under",
+    "orange", "palace", "garden", "river", "silver", "temple", "under",
     "valley", "winter", "yellow", "anchor", "basket", "castle", "dragon",
     "engine", "flower", "guitar", "hammer", "insect", "jacket", "kitten",
     "lantern", "marble", "nature", "ocean", "pencil", "rabbit", "saddle",
@@ -44,7 +44,7 @@ private val WORD_LIST = listOf(
     "indent", "jumble", "kernel", "ladder", "mental", "notice", "offset",
     "planet", "riddle", "spiral", "thread", "unique", "vertex", "wander",
     "ballet", "carbon", "differ", "effort", "fabric", "global", "hidden",
-    "impact", "launch", "knight", "linear", "method", "normal", "obtain",
+    "impact", "jungle", "knight", "linear", "method", "normal", "obtain",
     "parent", "random", "simple", "travel", "update", "vision", "weekly"
 )
 

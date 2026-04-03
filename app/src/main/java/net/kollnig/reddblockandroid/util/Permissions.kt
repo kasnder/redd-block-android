@@ -13,11 +13,9 @@ fun Context.isAccessibilityServiceEnabled(): Boolean {
     val serviceNameShort = "$packageName/.service.BlockerService"
     val enabledServices = Settings.Secure.getString(
         contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
-    ) ?: return false
-    // Split on ':' delimiter to avoid substring false positives
-    val services = enabledServices.split(':')
-    return services.any { it.equals(serviceName, ignoreCase = true) ||
-            it.equals(serviceNameShort, ignoreCase = true) }
+    )
+    return enabledServices?.contains(serviceName) == true ||
+            enabledServices?.contains(serviceNameShort) == true
 }
 
 fun Context.hasNotificationPermission(): Boolean {

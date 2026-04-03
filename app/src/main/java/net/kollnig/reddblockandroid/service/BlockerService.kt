@@ -302,7 +302,7 @@ class BlockerService : AccessibilityService() {
 
         val schedule = Schedules.get(scheduleId)
         val durationText = formatUnlockDuration(schedule?.autoReenableMinutes)
-        val unlockPendingIntent = buildUnlockPendingIntent(scheduleId, "app:$pkg".hashCode(), blockedPackage = pkg)
+        val unlockPendingIntent = buildUnlockPendingIntent(scheduleId, pkg.hashCode(), blockedPackage = pkg)
 
         val bodyText = getString(R.string.tap_to_temporarily_unlock_duration, appName, durationText)
         val notification = NotificationCompat.Builder(this, BLOCKER_CHANNEL_ID)
@@ -320,7 +320,7 @@ class BlockerService : AccessibilityService() {
             )
             .build()
 
-        NotificationManagerCompat.from(this).notify("app:$pkg".hashCode(), notification)
+        NotificationManagerCompat.from(this).notify(pkg.hashCode(), notification)
     }
 
     @SuppressLint("MissingPermission")
@@ -329,7 +329,7 @@ class BlockerService : AccessibilityService() {
 
         val schedule = Schedules.get(scheduleId)
         val durationText = formatUnlockDuration(schedule?.autoReenableMinutes)
-        val unlockPendingIntent = buildUnlockPendingIntent(scheduleId, "web:$domain".hashCode(), blockedDomain = domain)
+        val unlockPendingIntent = buildUnlockPendingIntent(scheduleId, domain.hashCode(), blockedDomain = domain)
 
         val bodyText = getString(R.string.tap_to_temporarily_unlock_duration, domain, durationText)
         val notification = NotificationCompat.Builder(this, BLOCKER_CHANNEL_ID)
@@ -347,7 +347,7 @@ class BlockerService : AccessibilityService() {
             )
             .build()
 
-        NotificationManagerCompat.from(this).notify("web:$domain".hashCode(), notification)
+        NotificationManagerCompat.from(this).notify(domain.hashCode(), notification)
     }
 
     private fun formatUnlockDuration(autoReenableMinutes: Int?): String {
