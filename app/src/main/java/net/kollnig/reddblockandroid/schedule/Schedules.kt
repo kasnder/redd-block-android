@@ -26,6 +26,7 @@ object Schedules {
     private const val TAG = "Schedules"
     private const val SCHEDULES_KEY = "routines" // keep legacy key for data compat
     private const val ACTIVE_SESSIONS_KEY = "active_routine_sessions" // keep legacy key
+    private val lock = Any()
 
     data class ActiveSession(
         val scheduleId: String,
@@ -80,7 +81,7 @@ object Schedules {
 
     fun get(id: String): Schedule? = getAll().find { it.id == id }
 
-    fun save(schedule: Schedule, context: Context) {
+    fun save(schedule: Schedule, context: Context) = synchronized(lock) {
         val schedules = getAll().toMutableList()
         val index = schedules.indexOfFirst { it.id == schedule.id }
 
@@ -98,12 +99,11 @@ object Schedules {
                 blockedWebsites = schedule.blockedWebsites.toSet()
             )
             saveActiveSessions(sessions)
-    
         }
     }
 
-    fun delete(id: String, context: Context) {
-        stopSession(context, id)
+    fun delete(id: String, context: Context) = synchronized(lock) {
+        stopSessionInternal(id)
         val schedules = getAll().filterNot { it.id == id }
         saveAll(schedules)
     }
@@ -111,64 +111,69 @@ object Schedules {
     fun toggle(id: String, context: Context) {
         Log.d(TAG, "Toggle called for schedule ID: $id")
 
-        val schedule = get(id) ?: run {
-            Log.e(TAG, "Schedule not found: $id")
-            return
-        }
+        synchronized(lock) {
+            val schedule = get(id) ?: run {
+                Log.e(TAG, "Schedule not found: $id")
+                return
+            }
 
-        val isCurrentlyActive = isScheduleActive(id)
+            val isCurrentlyActive = isScheduleActive(id)
 
-        if (schedule.isEnabled && isCurrentlyActive) {
-            // Turning OFF
-            val updated = if (schedule.autoReenableMinutes > 0) {
-                val disabledUntil = System.currentTimeMillis() + schedule.autoReenableMinutes * 60_000L
-                schedule.copy(isEnabled = false, disabledUntil = disabledUntil)
+            if (schedule.isEnabled && isCurrentlyActive) {
+                // Turning OFF
+                val updated = if (schedule.autoReenableMinutes > 0) {
+                    val disabledUntil =
+                        System.currentTimeMillis() + schedule.autoReenableMinutes * 60_000L
+                    schedule.copy(isEnabled = false, disabledUntil = disabledUntil)
+                } else {
+                    schedule.copy(isEnabled = false, disabledUntil = null)
+                }
+
+                val schedules = getAll().toMutableList()
+                val index = schedules.indexOfFirst { it.id == id }
+                if (index >= 0) schedules[index] = updated
+                saveAll(schedules)
+
+                // Stop manual session if one exists
+                stopSessionInternal(id)
+                ScheduleManager.cancelSchedule(context, id)
+
+                // Schedule auto-re-enable if configured
+                if (schedule.autoReenableMinutes > 0) {
+                    ScheduleManager.scheduleReEnable(
+                        context, id, schedule.autoReenableMinutes * 60_000L
+                    )
+                }
+            } else if (!schedule.isEnabled) {
+                // Turning ON (re-enabling)
+                val updated = schedule.copy(isEnabled = true, disabledUntil = null)
+
+                val schedules = getAll().toMutableList()
+                val index = schedules.indexOfFirst { it.id == id }
+                if (index >= 0) schedules[index] = updated
+                saveAll(schedules)
+
+                // Only manual schedules need an explicit session
+                if (updated.timing.type == ScheduleTiming.ScheduleType.MANUAL) {
+                    startSessionInternal(updated)
+                }
             } else {
-                schedule.copy(isEnabled = false, disabledUntil = null)
-            }
+                // Enabled but not currently active — toggle to activate (manual only)
+                val updated = schedule.copy(isEnabled = true)
 
-            val schedules = getAll().toMutableList()
-            val index = schedules.indexOfFirst { it.id == id }
-            if (index >= 0) schedules[index] = updated
-            saveAll(schedules)
+                val schedules = getAll().toMutableList()
+                val index = schedules.indexOfFirst { it.id == id }
+                if (index >= 0) schedules[index] = updated
+                saveAll(schedules)
 
-            // Stop manual session if one exists
-            stopSession(context, id)
-            ScheduleManager.cancelSchedule(context, id)
-
-            // Schedule auto-re-enable if configured
-            if (schedule.autoReenableMinutes > 0) {
-                ScheduleManager.scheduleReEnable(context, id, schedule.autoReenableMinutes * 60_000L)
-            }
-        } else if (!schedule.isEnabled) {
-            // Turning ON (re-enabling)
-            val updated = schedule.copy(isEnabled = true, disabledUntil = null)
-
-            val schedules = getAll().toMutableList()
-            val index = schedules.indexOfFirst { it.id == id }
-            if (index >= 0) schedules[index] = updated
-            saveAll(schedules)
-
-            // Only manual schedules need an explicit session
-            if (updated.timing.type == ScheduleTiming.ScheduleType.MANUAL) {
-                startSession(context, updated)
-            }
-        } else {
-            // Enabled but not currently active — toggle to activate (manual only)
-            val updated = schedule.copy(isEnabled = true)
-
-            val schedules = getAll().toMutableList()
-            val index = schedules.indexOfFirst { it.id == id }
-            if (index >= 0) schedules[index] = updated
-            saveAll(schedules)
-
-            if (updated.timing.type == ScheduleTiming.ScheduleType.MANUAL) {
-                startSession(context, updated)
+                if (updated.timing.type == ScheduleTiming.ScheduleType.MANUAL) {
+                    startSessionInternal(updated)
+                }
             }
         }
     }
 
-    fun reEnableSchedule(context: Context, scheduleId: String) {
+    fun reEnableSchedule(context: Context, scheduleId: String) = synchronized(lock) {
         Log.d(TAG, "Auto-re-enabling schedule: $scheduleId")
         val schedule = get(scheduleId) ?: return
         if (schedule.isEnabled) return // already enabled
@@ -181,7 +186,7 @@ object Schedules {
 
         // Only manual schedules need an explicit session
         if (updated.timing.type == ScheduleTiming.ScheduleType.MANUAL) {
-            startSession(context, updated)
+            startSessionInternal(updated)
         }
     }
 
@@ -192,7 +197,15 @@ object Schedules {
         prefs.edit { putString(SCHEDULES_KEY, json.toString()) }
     }
 
-    fun startSession(context: Context, schedule: Schedule) {
+    fun startSession(context: Context, schedule: Schedule) = synchronized(lock) {
+        startSessionInternal(schedule)
+    }
+
+    fun stopSession(context: Context, scheduleId: String) = synchronized(lock) {
+        stopSessionInternal(scheduleId)
+    }
+
+    private fun startSessionInternal(schedule: Schedule) {
         Log.d(TAG, "Starting session for: ${schedule.name}")
 
         val sessions = getActiveSessions().toMutableList()
@@ -208,11 +221,9 @@ object Schedules {
         saveActiveSessions(sessions)
 
         Log.d(TAG, "Started session for ${schedule.name} with ${schedule.blockedApps.size} blocked apps and ${schedule.blockedWebsites.size} blocked websites")
-
-
     }
 
-    fun stopSession(context: Context, scheduleId: String) {
+    private fun stopSessionInternal(scheduleId: String) {
         Log.d(TAG, "Stopping session for schedule: $scheduleId")
 
         val sessions = getActiveSessions().toMutableList()
@@ -220,7 +231,6 @@ object Schedules {
 
         if (removed) {
             saveActiveSessions(sessions)
-    
         }
     }
 

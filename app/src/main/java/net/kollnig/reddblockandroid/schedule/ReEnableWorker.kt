@@ -16,7 +16,8 @@ class ReEnableWorker(
 
     override suspend fun doWork(): Result {
         if (!isPrefsInitialized) {
-            prefs = context.getSharedPreferences("prefs", Context.MODE_PRIVATE)
+            val deviceContext = context.createDeviceProtectedStorageContext()
+            prefs = deviceContext.getSharedPreferences("prefs", Context.MODE_PRIVATE)
         }
 
         val scheduleId = inputData.getString(KEY_SCHEDULE_ID) ?: return Result.failure()

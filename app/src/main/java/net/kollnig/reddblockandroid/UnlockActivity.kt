@@ -62,8 +62,10 @@ class UnlockActivity : ComponentActivity() {
                     onPassedAndReturn = {
                         // Unlock and return to the blocked app/website
                         Schedules.toggle(schedule.id, this@UnlockActivity)
-                        relaunchBlockedApp(blockedPackage)
-                        openBlockedWebsite(blockedDomain)
+                        when {
+                            blockedPackage != null -> relaunchBlockedApp(blockedPackage)
+                            blockedDomain != null -> openBlockedWebsite(blockedDomain)
+                        }
                         finish()
                     },
                     onBackPressed = {
