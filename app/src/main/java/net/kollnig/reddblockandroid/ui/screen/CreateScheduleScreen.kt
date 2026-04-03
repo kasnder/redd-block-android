@@ -48,7 +48,8 @@ import java.util.UUID
 fun CreateScheduleScreen(
     scheduleId: String?,
     onBackPressed: () -> Unit,
-    onSaveComplete: () -> Unit
+    onSaveComplete: () -> Unit,
+    onFrictionGateRequired: (wordCount: Int, onPassed: () -> Unit) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val existingSchedule = scheduleId?.let { Schedules.get(it) }
@@ -98,9 +99,7 @@ fun CreateScheduleScreen(
         1440 to stringResource(R.string.auto_reenable_24hr)
     )
 
-    fun saveSchedule() {
-        if (scheduleName.isBlank()) return
-
+    fun buildSchedule(): Schedule {
         val timing = ScheduleTiming(
             type = scheduleType,
             timeHour = if (scheduleType != ScheduleTiming.ScheduleType.MANUAL) selectedTime.hour else null,
@@ -110,11 +109,11 @@ fun CreateScheduleScreen(
             daysOfWeek = if (scheduleType == ScheduleTiming.ScheduleType.WEEKLY) selectedDays else emptySet()
         )
 
-        val schedule = Schedule(
+        return Schedule(
             id = existingSchedule?.id ?: UUID.randomUUID().toString(),
             name = scheduleName.trim(),
             isEnabled = if (existingSchedule != null) {
-                if (existingSchedule.timing.type != ScheduleTiming.ScheduleType.MANUAL && 
+                if (existingSchedule.timing.type != ScheduleTiming.ScheduleType.MANUAL &&
                     scheduleType == ScheduleTiming.ScheduleType.MANUAL) {
                     false
                 } else {
@@ -129,9 +128,55 @@ fun CreateScheduleScreen(
             frictionWordCount = frictionWordCount,
             autoReenableMinutes = autoReenableMinutes
         )
+    }
+
+    /**
+     * Returns true if the new schedule is at least as strict as the original.
+     * "Strictly more restrictive" means:
+     *  - All original blocked apps are still present
+     *  - All original blocked websites are still present
+     *  - Friction word count has not decreased
+     *  - Schedule timing / type / auto-reenable have not changed
+     */
+    fun isStrictlyMoreRestrictive(original: Schedule, updated: Schedule): Boolean {
+        // All original blocked apps must still be present
+        if (!updated.blockedApps.containsAll(original.blockedApps)) return false
+        // All original blocked websites must still be present
+        if (!updated.blockedWebsites.containsAll(original.blockedWebsites)) return false
+        // Friction word count must not decrease
+        if (updated.frictionWordCount < original.frictionWordCount) return false
+        // Schedule type must not change
+        if (updated.timing.type != original.timing.type) return false
+        // Timing windows must not change
+        if (updated.timing.timeHour != original.timing.timeHour ||
+            updated.timing.timeMinute != original.timing.timeMinute ||
+            updated.timing.endTimeHour != original.timing.endTimeHour ||
+            updated.timing.endTimeMinute != original.timing.endTimeMinute) return false
+        // Days of week must not change
+        if (updated.timing.daysOfWeek != original.timing.daysOfWeek) return false
+        // Auto-reenable must not change
+        if (updated.autoReenableMinutes != original.autoReenableMinutes) return false
+        return true
+    }
+
+    fun saveSchedule() {
+        if (scheduleName.isBlank()) return
+
+        val schedule = buildSchedule()
+
+        // If editing an active schedule and changes make it less strict, require friction gate
+        if (existingSchedule != null &&
+            Schedules.isScheduleActive(existingSchedule.id) &&
+            !isStrictlyMoreRestrictive(existingSchedule, schedule)
+        ) {
+            onFrictionGateRequired(existingSchedule.frictionWordCount) {
+                Schedules.save(schedule, context)
+                onSaveComplete()
+            }
+            return
+        }
 
         Schedules.save(schedule, context)
-
         onSaveComplete()
     }
 
@@ -646,9 +691,17 @@ fun CreateScheduleScreen(
             text = { Text(stringResource(R.string.delete_schedule_confirm, existingSchedule.name)) },
             confirmButton = {
                 TextButton(onClick = {
-                    Schedules.delete(existingSchedule.id, context)
-                    showDeleteDialog = false
-                    onSaveComplete()
+                    if (Schedules.isScheduleActive(existingSchedule.id)) {
+                        showDeleteDialog = false
+                        onFrictionGateRequired(existingSchedule.frictionWordCount) {
+                            Schedules.delete(existingSchedule.id, context)
+                            onSaveComplete()
+                        }
+                    } else {
+                        Schedules.delete(existingSchedule.id, context)
+                        showDeleteDialog = false
+                        onSaveComplete()
+                    }
                 }) {
                     Text(
                         stringResource(R.string.delete),

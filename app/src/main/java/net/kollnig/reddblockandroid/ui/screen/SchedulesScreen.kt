@@ -151,11 +151,8 @@ fun SchedulesScreen(
                             schedule = schedule,
                             isActive = isActive,
                             onClick = {
-                                if (isActive) {
-                                    onFrictionGateRequired(schedule) { onEditSchedule(schedule) }
-                                } else {
-                                    onEditSchedule(schedule)
-                                }
+                                // Always allow editing — strictness is checked at save time
+                                onEditSchedule(schedule)
                             },
                             onToggle = {
                                 if (isActive) {
@@ -169,11 +166,8 @@ fun SchedulesScreen(
                                 }
                             },
                             onEdit = {
-                                if (isActive) {
-                                    onFrictionGateRequired(schedule) { onEditSchedule(schedule) }
-                                } else {
-                                    onEditSchedule(schedule)
-                                }
+                                // Always allow editing — strictness is checked at save time
+                                onEditSchedule(schedule)
                             }
                     )
                 }
