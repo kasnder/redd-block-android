@@ -57,7 +57,12 @@ fun AppNavigation() {
             CreateScheduleScreen(
                 scheduleId = null,
                 onBackPressed = { navController.popBackStack() },
-                onSaveComplete = { navController.popBackStack() }
+                onSaveComplete = { navController.popBackStack() },
+                onFrictionGateRequired = { wordCount, onPassed ->
+                    frictionWordCount = wordCount
+                    pendingFrictionAction = onPassed
+                    navController.navigate("friction_gate")
+                }
             )
         }
 
@@ -68,7 +73,12 @@ fun AppNavigation() {
             CreateScheduleScreen(
                 scheduleId = backStackEntry.arguments?.getString("scheduleId"),
                 onBackPressed = { navController.popBackStack() },
-                onSaveComplete = { navController.popBackStack() }
+                onSaveComplete = { navController.popBackStack() },
+                onFrictionGateRequired = { wordCount, onPassed ->
+                    frictionWordCount = wordCount
+                    pendingFrictionAction = onPassed
+                    navController.navigate("friction_gate")
+                }
             )
         }
 
