@@ -82,6 +82,7 @@
     <string name="friction_gate_finish">Finish</string>
     <string name="gate_passed_title">Schedule Unlocked</string>
     <string name="gate_passed_description">The block has been temporarily lifted. What would you like to do?</string>
+    <string name="gate_passed_description_duration">The block will be lifted for %s. What would you like to do?</string>
     <string name="unlock_and_return">Unlock &amp; open %s</string>
     <string name="just_unlock">Just unlock</string>
 

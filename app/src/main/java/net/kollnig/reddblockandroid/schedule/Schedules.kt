@@ -357,37 +357,65 @@ object Schedules {
         }
     }
 
-    fun createDefaults(): List<Schedule> = listOf(
-        Schedule(
-            id = UUID.randomUUID().toString(),
-            name = "Weekend Digital Detox",
-            isEnabled = false,
-            timing = ScheduleTiming(
-                type = ScheduleTiming.ScheduleType.WEEKLY,
-                timeHour = 9,
-                timeMinute = 0,
-                endTimeHour = 18,
-                endTimeMinute = 0,
-                daysOfWeek = setOf(DayOfWeek.SATURDAY, DayOfWeek.SUNDAY)
-            )
-        ),
-        Schedule(
-            id = UUID.randomUUID().toString(),
-            name = "Workday Focus",
-            isEnabled = false,
-            timing = ScheduleTiming(
-                type = ScheduleTiming.ScheduleType.WEEKLY,
-                timeHour = 9,
-                timeMinute = 0,
-                endTimeHour = 17,
-                endTimeMinute = 0,
-                daysOfWeek = setOf(
-                    DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
-                    DayOfWeek.THURSDAY, DayOfWeek.FRIDAY
-                )
-            )
-        )
+    /** Well-known social media app package names. */
+    val SOCIAL_MEDIA_PACKAGES = listOf(
+        "com.instagram.android",
+        "com.zhiliaoapp.musically",     // TikTok
+        "com.twitter.android",
+        "com.twitter.android.lite",
+        "com.facebook.katana",           // Facebook
+        "com.facebook.lite",
+        "com.reddit.frontpage",
+        "com.snapchat.android",
+        "com.google.android.youtube",
+        "com.linkedin.android",
+        "com.pinterest",
+        "com.tumblr",
     )
+
+    val SOCIAL_MEDIA_DOMAINS = listOf(
+        "instagram.com",
+        "tiktok.com",
+        "twitter.com",
+        "x.com",
+        "facebook.com",
+        "reddit.com",
+        "snapchat.com",
+        "youtube.com",
+        "linkedin.com",
+        "pinterest.com",
+        "tumblr.com",
+    )
+
+    /**
+     * Creates a default "Social Media" schedule pre-filled with common
+     * social media apps (only those installed) and websites.
+     * Returns the list of installed social media app packages for the schedule.
+     */
+    fun createDefaults(context: Context) {
+        if (getAll().isNotEmpty()) return // already have schedules
+
+        val installedApps = SOCIAL_MEDIA_PACKAGES.filter { pkg ->
+            try {
+                context.packageManager.getApplicationInfo(pkg, 0)
+                true
+            } catch (_: Exception) {
+                false
+            }
+        }
+
+        val schedule = Schedule(
+            id = UUID.randomUUID().toString(),
+            name = "Social Media",
+            isEnabled = false,
+            timing = ScheduleTiming(type = ScheduleTiming.ScheduleType.MANUAL),
+            blockedApps = installedApps,
+            blockedWebsites = SOCIAL_MEDIA_DOMAINS,
+            frictionWordCount = 5,
+            autoReenableMinutes = 10
+        )
+        saveAll(listOf(schedule))
+    }
 
     private fun parseSchedule(json: JSONObject): Schedule? = try {
         val timingJson = json.getJSONObject("schedule")

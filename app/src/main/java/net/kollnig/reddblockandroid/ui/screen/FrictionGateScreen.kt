@@ -52,6 +52,8 @@ private val WORD_LIST = listOf(
  * @param returnTargetLabel  When non-null, a second "Unlock & return to ..." button
  *   is shown after the gate is passed (e.g. the blocked app name or website domain).
  *   When null the gate behaves as before - a single action on completion.
+ * @param unlockDurationText When non-null, displayed on the completion screen to
+ *   tell the user how long the block is lifted (e.g. "10 minutes").
  * @param onPassed           Called when the user chooses "Just unlock" (or when
  *   there is no return target and the gate is passed).
  * @param onPassedAndReturn  Called when the user chooses "Unlock & return to ...".
@@ -64,6 +66,7 @@ fun FrictionGateScreen(
     onPassed: () -> Unit,
     onBackPressed: () -> Unit,
     returnTargetLabel: String? = null,
+    unlockDurationText: String? = null,
     onPassedAndReturn: (() -> Unit)? = null
 ) {
     val words = remember {
@@ -157,7 +160,10 @@ fun FrictionGateScreen(
                 Spacer(Modifier.height(8.dp))
 
                 Text(
-                    stringResource(R.string.gate_passed_description),
+                    if (unlockDurationText != null)
+                        stringResource(R.string.gate_passed_description_duration, unlockDurationText)
+                    else
+                        stringResource(R.string.gate_passed_description),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center

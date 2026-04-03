@@ -1,6 +1,5 @@
 package net.kollnig.reddblockandroid.ui.screen
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -35,22 +34,17 @@ import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
 import net.kollnig.reddblockandroid.schedule.Schedules
 import net.kollnig.reddblockandroid.ui.theme.*
-import net.kollnig.reddblockandroid.util.hasNotificationPermission
 import net.kollnig.reddblockandroid.util.isAccessibilityServiceEnabled
-import net.kollnig.reddblockandroid.util.isBatteryOptimizationDisabled
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    onNavigateToPermissions: () -> Unit,
     onCreateSchedule: () -> Unit,
     onEditSchedule: (Schedule) -> Unit,
     onFrictionGateRequired: (Schedule, () -> Unit) -> Unit
 ) {
     val context = LocalContext.current
     var isAccessibilityEnabled by remember { mutableStateOf(context.isAccessibilityServiceEnabled()) }
-    var hasNotifications by remember { mutableStateOf(context.hasNotificationPermission()) }
-    var hasBatteryOpt by remember { mutableStateOf(context.isBatteryOptimizationDisabled()) }
 
     var schedules by remember { mutableStateOf(Schedules.getAll()) }
     // Incremented to force recomposition after schedule state changes
@@ -125,16 +119,12 @@ fun HomeScreen(
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
                 isAccessibilityEnabled = context.isAccessibilityServiceEnabled()
-                hasNotifications = context.hasNotificationPermission()
-                hasBatteryOpt = context.isBatteryOptimizationDisabled()
                 refreshSchedules()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-
-    val allPermissionsGranted = isAccessibilityEnabled && hasNotifications && hasBatteryOpt
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
