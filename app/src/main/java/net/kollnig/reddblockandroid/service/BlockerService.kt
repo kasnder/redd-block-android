@@ -2,21 +2,12 @@ package net.kollnig.reddblockandroid.service
 
 import android.accessibilityservice.AccessibilityService
 import android.annotation.SuppressLint
-import android.app.PendingIntent
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
-import androidx.core.app.NotificationCompat
-import androidx.core.app.NotificationManagerCompat
-import net.kollnig.reddblockandroid.R
 import net.kollnig.reddblockandroid.UnlockActivity
 import net.kollnig.reddblockandroid.schedule.Schedules
-import net.kollnig.reddblockandroid.util.BLOCKER_CHANNEL_ID
 
-import net.kollnig.reddblockandroid.util.NotificationHelper.createNotificationChannel
 import net.kollnig.reddblockandroid.util.isPrefsInitialized
 import net.kollnig.reddblockandroid.util.prefs
 import androidx.core.net.toUri
@@ -34,7 +25,6 @@ class BlockerService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        createNotificationChannel()
 
         if (!isPrefsInitialized) {
             val deviceContext = createDeviceProtectedStorageContext()
@@ -66,7 +56,7 @@ class BlockerService : AccessibilityService() {
                             if (blockingSchedule != null) {
                                 Log.d(TAG, "Blocking website $domain in browser ($pkg)")
                                 navigateBrowserToBlank(pkg)
-                                showWebsiteBlockedNotification(domain, blockingSchedule.id)
+                                launchFrictionGate(blockingSchedule.id, blockedDomain = domain)
                                 return
                             }
                         }
@@ -86,9 +76,27 @@ class BlockerService : AccessibilityService() {
                 lastBlockedTime = now
                 Log.d(TAG, "Blocking app $pkg by schedule: $blockingSchedule")
                 performGlobalAction(GLOBAL_ACTION_HOME)
-                showAppBlockedNotification(pkg, blockingSchedule.id)
+                launchFrictionGate(blockingSchedule.id, blockedPackage = pkg)
             }
         }
+    }
+
+    private fun launchFrictionGate(
+        scheduleId: String,
+        blockedPackage: String? = null,
+        blockedDomain: String? = null
+    ) {
+        val intent = Intent(this, UnlockActivity::class.java).apply {
+            putExtra(UnlockActivity.EXTRA_SCHEDULE_ID, scheduleId)
+            if (blockedPackage != null) {
+                putExtra(UnlockActivity.EXTRA_BLOCKED_PACKAGE, blockedPackage)
+            }
+            if (blockedDomain != null) {
+                putExtra(UnlockActivity.EXTRA_BLOCKED_DOMAIN, blockedDomain)
+            }
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        }
+        startActivity(intent)
     }
 
     private fun shouldSkipPackage(packageName: String): Boolean {
@@ -263,103 +271,6 @@ class BlockerService : AccessibilityService() {
         } catch (e: Exception) {
             Log.e(TAG, "Error extracting domain from URL: $url", e)
             null
-        }
-    }
-
-    private fun buildUnlockPendingIntent(
-        scheduleId: String,
-        requestCode: Int,
-        blockedPackage: String? = null,
-        blockedDomain: String? = null
-    ): PendingIntent {
-        val intent = Intent(this, UnlockActivity::class.java).apply {
-            putExtra(UnlockActivity.EXTRA_SCHEDULE_ID, scheduleId)
-            if (blockedPackage != null) {
-                putExtra(UnlockActivity.EXTRA_BLOCKED_PACKAGE, blockedPackage)
-            }
-            if (blockedDomain != null) {
-                putExtra(UnlockActivity.EXTRA_BLOCKED_DOMAIN, blockedDomain)
-            }
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-        }
-        return PendingIntent.getActivity(
-            this, requestCode, intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun showAppBlockedNotification(pkg: String, scheduleId: String) {
-        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
-
-        val appName = try {
-            packageManager.getApplicationLabel(
-                packageManager.getApplicationInfo(pkg, 0)
-            )
-        } catch (_: PackageManager.NameNotFoundException) {
-            pkg
-        }
-
-        val schedule = Schedules.get(scheduleId)
-        val durationText = formatUnlockDuration(schedule?.autoReenableMinutes)
-        val unlockPendingIntent = buildUnlockPendingIntent(scheduleId, pkg.hashCode(), blockedPackage = pkg)
-
-        val bodyText = getString(R.string.tap_to_temporarily_unlock_duration, appName, durationText)
-        val notification = NotificationCompat.Builder(this, BLOCKER_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_block)
-            .setContentTitle(getString(R.string.app_blocked))
-            .setContentText(bodyText)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .setContentIntent(unlockPendingIntent)
-            .addAction(
-                R.drawable.ic_block,
-                getString(R.string.temporarily_disable),
-                unlockPendingIntent
-            )
-            .build()
-
-        NotificationManagerCompat.from(this).notify(pkg.hashCode(), notification)
-    }
-
-    @SuppressLint("MissingPermission")
-    private fun showWebsiteBlockedNotification(domain: String, scheduleId: String) {
-        if (!NotificationManagerCompat.from(this).areNotificationsEnabled()) return
-
-        val schedule = Schedules.get(scheduleId)
-        val durationText = formatUnlockDuration(schedule?.autoReenableMinutes)
-        val unlockPendingIntent = buildUnlockPendingIntent(scheduleId, domain.hashCode(), blockedDomain = domain)
-
-        val bodyText = getString(R.string.tap_to_temporarily_unlock_duration, domain, durationText)
-        val notification = NotificationCompat.Builder(this, BLOCKER_CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_block)
-            .setContentTitle(getString(R.string.website_blocked))
-            .setContentText(bodyText)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(bodyText))
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setAutoCancel(true)
-            .setContentIntent(unlockPendingIntent)
-            .addAction(
-                R.drawable.ic_block,
-                getString(R.string.temporarily_disable),
-                unlockPendingIntent
-            )
-            .build()
-
-        NotificationManagerCompat.from(this).notify(domain.hashCode(), notification)
-    }
-
-    private fun formatUnlockDuration(autoReenableMinutes: Int?): String {
-        if (autoReenableMinutes == null || autoReenableMinutes <= 0) {
-            return getString(R.string.duration_until_reenabled)
-        }
-        val hours = autoReenableMinutes / 60
-        val minutes = autoReenableMinutes % 60
-        return when {
-            hours > 0 && minutes > 0 -> getString(R.string.duration_hours_minutes, hours, minutes)
-            hours > 0 -> resources.getQuantityString(R.plurals.duration_hours, hours, hours)
-            else -> resources.getQuantityString(R.plurals.duration_minutes, minutes, minutes)
         }
     }
 

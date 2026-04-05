@@ -11,7 +11,7 @@ import net.kollnig.reddblockandroid.ui.screen.FrictionGateScreen
 import net.kollnig.reddblockandroid.ui.theme.ReDDBlockAndroidTheme
 
 /**
- * Standalone activity launched from blocked-notification actions.
+ * Standalone activity launched by BlockerService when an app or website is blocked.
  * Shows the friction gate; on completion, temporarily disables the
  * schedule that caused the block.
  *
@@ -49,11 +49,14 @@ class UnlockActivity : ComponentActivity() {
             else -> null
         }
 
+        val unlockDurationText = formatUnlockDuration(schedule.autoReenableMinutes)
+
         setContent {
             ReDDBlockAndroidTheme {
                 FrictionGateScreen(
                     wordCount = schedule.frictionWordCount,
                     returnTargetLabel = returnTargetLabel,
+                    unlockDurationText = unlockDurationText,
                     onPassed = {
                         // Just unlock, don't return to blocked content
                         Schedules.toggle(schedule.id, this@UnlockActivity)
@@ -81,6 +84,17 @@ class UnlockActivity : ComponentActivity() {
             ).toString()
         } catch (_: Exception) {
             packageName
+        }
+    }
+
+    private fun formatUnlockDuration(autoReenableMinutes: Int): String? {
+        if (autoReenableMinutes <= 0) return null
+        val hours = autoReenableMinutes / 60
+        val minutes = autoReenableMinutes % 60
+        return when {
+            hours > 0 && minutes > 0 -> getString(R.string.duration_hours_minutes, hours, minutes)
+            hours > 0 -> resources.getQuantityString(R.plurals.duration_hours, hours, hours)
+            else -> resources.getQuantityString(R.plurals.duration_minutes, minutes, minutes)
         }
     }
 

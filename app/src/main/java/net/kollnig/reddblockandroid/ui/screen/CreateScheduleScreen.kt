@@ -289,6 +289,17 @@ fun CreateScheduleScreen(
 
                     // Add website inline
                     var inlineWebsite by remember { mutableStateOf("") }
+                    val domainPattern = remember {
+                        Regex("^[a-zA-Z0-9][a-zA-Z0-9.-]*\\.[a-zA-Z]{2,}$")
+                    }
+                    fun cleanDomain(input: String): String {
+                        var d = input.lowercase().trim()
+                        // Strip protocol prefixes and paths
+                        d = d.removePrefix("https://").removePrefix("http://")
+                        d = d.removePrefix("www.")
+                        d = d.split("/").first()
+                        return d
+                    }
                     OutlinedTextField(
                         value = inlineWebsite,
                         onValueChange = { inlineWebsite = it },
@@ -299,8 +310,11 @@ fun CreateScheduleScreen(
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = {
                             if (inlineWebsite.isNotBlank()) {
-                                blockedWebsites = (blockedWebsites + inlineWebsite.lowercase().trim()).distinct()
-                                inlineWebsite = ""
+                                val cleaned = cleanDomain(inlineWebsite)
+                                if (cleaned.isNotBlank() && domainPattern.matches(cleaned)) {
+                                    blockedWebsites = (blockedWebsites + cleaned).distinct()
+                                    inlineWebsite = ""
+                                }
                             }
                         }),
                         colors = OutlinedTextFieldDefaults.colors(

@@ -14,7 +14,6 @@ import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.ui.screen.CreateScheduleScreen
 import net.kollnig.reddblockandroid.ui.screen.FrictionGateScreen
 import net.kollnig.reddblockandroid.ui.screen.HomeScreen
-import net.kollnig.reddblockandroid.ui.screen.PermissionsScreen
 import net.kollnig.reddblockandroid.ui.theme.ReDDBlockAndroidTheme
 
 class MainActivity : ComponentActivity() {
@@ -40,7 +39,6 @@ fun AppNavigation() {
     NavHost(navController = navController, startDestination = "home") {
         composable("home") {
             HomeScreen(
-                onNavigateToPermissions = { navController.navigate("permissions") },
                 onCreateSchedule = { navController.navigate("create_schedule") },
                 onEditSchedule = { schedule ->
                     navController.navigate("edit_schedule/${schedule.id}")
@@ -97,10 +95,5 @@ fun AppNavigation() {
             )
         }
 
-        composable("permissions") {
-            PermissionsScreen(
-                onBackPressed = { navController.popBackStack() }
-            )
-        }
     }
 }
