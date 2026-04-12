@@ -16,6 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import android.speech.tts.TextToSpeech
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
@@ -25,7 +27,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import net.kollnig.reddblockandroid.BuildConfig
 import net.kollnig.reddblockandroid.R
+import net.kollnig.reddblockandroid.data.CHINESE_VOCABULARY
 import net.kollnig.reddblockandroid.ui.theme.*
 
 // Common English words for the friction gate
@@ -48,6 +52,7 @@ private val WORD_LIST = listOf(
     "parent", "random", "simple", "travel", "update", "vision", "weekly"
 )
 
+
 /**
  * @param unlockDurationText When non-null, shown in the block mode title to
  *   tell the user how long the block will be lifted (e.g. "10 minutes").
@@ -67,9 +72,34 @@ fun FrictionGateScreen(
     blockedTargetLabel: String? = null,
     isBlockMode: Boolean = false,
 ) {
+    val useChineseMode = BuildConfig.DEBUG
+
+    // TTS for Chinese pronunciation
+    val context = LocalContext.current
+    val tts = remember {
+        var engine: TextToSpeech? = null
+        engine = TextToSpeech(context) { status ->
+            if (status == TextToSpeech.SUCCESS) {
+                engine?.language = java.util.Locale.CHINESE
+            }
+        }
+        engine
+    }
+    DisposableEffect(Unit) {
+        onDispose { tts?.shutdown() }
+    }
+
+    // English words mode
     val words = remember {
         WORD_LIST.shuffled().take(wordCount)
     }
+    // Chinese mode — bump this to unlock harder words
+    val chineseHskLevel = 1
+    val chineseWords = remember {
+        CHINESE_VOCABULARY.filter { it.hskLevel <= chineseHskLevel }.shuffled().take(wordCount)
+    }
+
+    val totalCount = if (useChineseMode) chineseWords.size else words.size
 
     var currentWordIndex by remember { mutableIntStateOf(0) }
     var userInput by remember { mutableStateOf("") }
@@ -78,17 +108,30 @@ fun FrictionGateScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
 
     // Build the challenge phrase (all remaining words)
-    val challengePhrase = remember { words.joinToString(" ") }
+    val challengePhrase = remember {
+        if (useChineseMode) chineseWords.joinToString("  ") { it.character }
+        else words.joinToString(" ")
+    }
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboardController?.show()
     }
 
+    fun normalizeUserPinyin(input: String): String =
+        java.text.Normalizer.normalize(input.trim().lowercase(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("[\\p{InCombiningDiacriticalMarks}]"), "")
+            .replace(Regex("\\s+"), "")
+
     fun checkWord() {
-        if (userInput.trim().equals(words[currentWordIndex], ignoreCase = true)) {
+        val isCorrect = if (useChineseMode) {
+            normalizeUserPinyin(userInput) == chineseWords[currentWordIndex].pinyinNormalized
+        } else {
+            userInput.trim().equals(words[currentWordIndex], ignoreCase = true)
+        }
+        if (isCorrect) {
             isError = false
-            if (currentWordIndex >= words.lastIndex) {
+            if (currentWordIndex >= totalCount - 1) {
                 onPassed()
             } else {
                 currentWordIndex++
@@ -149,14 +192,17 @@ fun FrictionGateScreen(
 
                 // Progress indicator
                 LinearProgressIndicator(
-                    progress = { (currentWordIndex.toFloat()) / words.size },
+                    progress = { (currentWordIndex.toFloat()) / totalCount },
                     modifier = Modifier.fillMaxWidth(),
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
                     color = IndigoPrimary,
                 )
 
                 Text(
-                    stringResource(R.string.friction_gate_progress, currentWordIndex + 1, words.size),
+                    if (useChineseMode)
+                        stringResource(R.string.friction_gate_progress_chinese, currentWordIndex + 1, totalCount)
+                    else
+                        stringResource(R.string.friction_gate_progress, currentWordIndex + 1, totalCount),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -185,10 +231,17 @@ fun FrictionGateScreen(
 
                         // Instruction with context
                         Text(
-                            if (isBlockMode && scheduleName != null)
-                                stringResource(R.string.block_gate_instruction, scheduleName)
-                            else
-                                stringResource(R.string.override_instruction),
+                            if (useChineseMode) {
+                                if (isBlockMode && scheduleName != null)
+                                    stringResource(R.string.block_gate_instruction_chinese, scheduleName)
+                                else
+                                    stringResource(R.string.override_instruction_chinese)
+                            } else {
+                                if (isBlockMode && scheduleName != null)
+                                    stringResource(R.string.block_gate_instruction, scheduleName)
+                                else
+                                    stringResource(R.string.override_instruction)
+                            },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -211,7 +264,10 @@ fun FrictionGateScreen(
 
                         // Current word highlight
                         Text(
-                            stringResource(R.string.friction_gate_progress, currentWordIndex + 1, words.size),
+                            if (useChineseMode)
+                                stringResource(R.string.friction_gate_progress_chinese, currentWordIndex + 1, totalCount)
+                            else
+                                stringResource(R.string.friction_gate_progress, currentWordIndex + 1, totalCount),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.outline
                         )
@@ -222,16 +278,50 @@ fun FrictionGateScreen(
                             shape = RoundedCornerShape(10.dp),
                             color = IndigoPrimary.copy(alpha = 0.08f)
                         ) {
-                            Text(
-                                words[currentWordIndex],
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(16.dp),
-                                style = MaterialTheme.typography.headlineSmall,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.Center,
-                                color = IndigoPrimary
-                            )
+                            if (useChineseMode) {
+                                val cw = chineseWords[currentWordIndex]
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Text(
+                                        cw.character,
+                                        style = MaterialTheme.typography.displaySmall,
+                                        fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center,
+                                        color = IndigoPrimary
+                                    )
+                                    Text(
+                                        cw.meaning,
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        textAlign = TextAlign.Center,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    IconButton(onClick = {
+                                        tts?.speak(cw.character, TextToSpeech.QUEUE_FLUSH, null, null)
+                                    }) {
+                                        Icon(
+                                            Icons.Rounded.VolumeUp,
+                                            contentDescription = "Listen",
+                                            tint = IndigoPrimary
+                                        )
+                                    }
+                                }
+                            } else {
+                                Text(
+                                    words[currentWordIndex],
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    style = MaterialTheme.typography.headlineSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.Center,
+                                    color = IndigoPrimary
+                                )
+                            }
                         }
 
                         // Input field
@@ -241,7 +331,13 @@ fun FrictionGateScreen(
                                 userInput = it
                                 isError = false
                             },
-                            placeholder = { Text(stringResource(R.string.type_here_hint), color = TextHint) },
+                            placeholder = {
+                                Text(
+                                    if (useChineseMode) stringResource(R.string.friction_gate_pinyin_hint)
+                                    else stringResource(R.string.type_here_hint),
+                                    color = TextHint
+                                )
+                            },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .focusRequester(focusRequester),
@@ -249,12 +345,19 @@ fun FrictionGateScreen(
                             singleLine = true,
                             isError = isError,
                             supportingText = if (isError) {
-                                { Text(stringResource(R.string.friction_gate_error)) }
+                                {
+                                    Text(
+                                        if (useChineseMode)
+                                            stringResource(R.string.friction_gate_error_chinese, chineseWords[currentWordIndex].pinyin)
+                                        else
+                                            stringResource(R.string.friction_gate_error)
+                                    )
+                                }
                             } else null,
                             keyboardOptions = KeyboardOptions(
                                 imeAction = ImeAction.Done,
                                 autoCorrectEnabled = false,
-                                keyboardType = KeyboardType.Password
+                                keyboardType = if (useChineseMode) KeyboardType.Text else KeyboardType.Password
                             ),
                             keyboardActions = KeyboardActions(onDone = { checkWord() }),
                             colors = OutlinedTextFieldDefaults.colors(
@@ -294,7 +397,7 @@ fun FrictionGateScreen(
                                 )
                             ) {
                                 Text(
-                                    if (currentWordIndex >= words.lastIndex) stringResource(R.string.override_button)
+                                    if (currentWordIndex >= totalCount - 1) stringResource(R.string.override_button)
                                     else stringResource(R.string.friction_gate_next),
                                     fontWeight = FontWeight.Bold
                                 )

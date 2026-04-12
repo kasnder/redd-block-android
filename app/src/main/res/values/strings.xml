@@ -76,6 +76,7 @@
     <string name="friction_gate_title">Confirm Action</string>
     <string name="friction_gate_desc">Type each word below to confirm you want to proceed. This helps prevent impulsive changes.</string>
     <string name="friction_gate_progress">Word %1$d of %2$d</string>
+    <string name="friction_gate_progress_chinese">Character %1$d of %2$d</string>
     <string name="close">Close</string>
     <string name="keep_blocked">Keep blocked</string>
     <string name="block_gate_title">Unlock %s</string>
@@ -83,6 +84,8 @@
     <string name="block_gate_instruction">Blocked by your \"%1$s\" schedule. To unlock, type the following:</string>
     <string name="friction_gate_input_label">Type the word above</string>
     <string name="friction_gate_error">That doesn\'t match. Try again.</string>
+    <string name="friction_gate_error_chinese">Incorrect. The pinyin is: %s</string>
+    <string name="friction_gate_pinyin_hint">Type the pinyin\u2026</string>
     <string name="friction_gate_next">Next</string>
     <string name="friction_gate_finish">Finish</string>
 
@@ -126,6 +129,8 @@
     <string name="override_title">Override %s?</string>
     <string name="override_description">Blocks %1$d websites (%2$s)</string>
     <string name="override_instruction">To cancel this block early, type the following:</string>
+    <string name="override_instruction_chinese">To proceed, type the pinyin for each character:</string>
+    <string name="block_gate_instruction_chinese">Blocked by your \"%1$s\" schedule. To unlock, type the pinyin for each character:</string>
     <string name="override_button">Override</string>
     <string name="type_here_hint">Type here…</string>
     <string name="footer_text">Made with ❤\uFE0F by reddfocus.org</string>
