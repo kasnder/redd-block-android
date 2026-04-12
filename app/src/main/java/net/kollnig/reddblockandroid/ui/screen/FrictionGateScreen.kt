@@ -49,15 +49,12 @@ private val WORD_LIST = listOf(
 )
 
 /**
- * @param returnTargetLabel  When non-null, a second "Unlock & return to ..." button
- *   is shown after the gate is passed (e.g. the blocked app name or website domain).
- *   When null the gate behaves as before - a single action on completion.
- * @param unlockDurationText When non-null, displayed on the completion screen to
- *   tell the user how long the block is lifted (e.g. "10 minutes").
- * @param onPassed           Called when the user chooses "Just unlock" (or when
- *   there is no return target and the gate is passed).
- * @param onPassedAndReturn  Called when the user chooses "Unlock & return to ...".
- *   Only meaningful when [returnTargetLabel] is non-null.
+ * @param unlockDurationText When non-null, shown in the block mode title to
+ *   tell the user how long the block will be lifted (e.g. "10 minutes").
+ * @param scheduleName       Name of the schedule that caused the block (shown in block mode).
+ * @param isBlockMode        True when launched by the blocker service (shows close button
+ *   instead of back, different title/instruction). False for in-app friction gate.
+ * @param onPassed           Called when the gate is passed.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -65,9 +62,10 @@ fun FrictionGateScreen(
     wordCount: Int,
     onPassed: () -> Unit,
     onBackPressed: () -> Unit,
-    returnTargetLabel: String? = null,
     unlockDurationText: String? = null,
-    onPassedAndReturn: (() -> Unit)? = null
+    scheduleName: String? = null,
+    blockedTargetLabel: String? = null,
+    isBlockMode: Boolean = false,
 ) {
     val words = remember {
         WORD_LIST.shuffled().take(wordCount)
@@ -76,7 +74,6 @@ fun FrictionGateScreen(
     var currentWordIndex by remember { mutableIntStateOf(0) }
     var userInput by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
-    var gatePassed by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -92,13 +89,7 @@ fun FrictionGateScreen(
         if (userInput.trim().equals(words[currentWordIndex], ignoreCase = true)) {
             isError = false
             if (currentWordIndex >= words.lastIndex) {
-                if (returnTargetLabel != null && onPassedAndReturn != null) {
-                    // Show completion screen with two choices
-                    gatePassed = true
-                    keyboardController?.hide()
-                } else {
-                    onPassed()
-                }
+                onPassed()
             } else {
                 currentWordIndex++
                 userInput = ""
@@ -108,19 +99,33 @@ fun FrictionGateScreen(
         }
     }
 
+    // Build contextual title for block mode
+    val topBarTitle = if (isBlockMode && blockedTargetLabel != null) {
+        if (unlockDurationText != null)
+            stringResource(R.string.block_gate_title_duration, blockedTargetLabel, unlockDurationText)
+        else
+            stringResource(R.string.block_gate_title, blockedTargetLabel)
+    } else if (isBlockMode) {
+        stringResource(R.string.app_name)
+    } else {
+        stringResource(R.string.friction_gate_title)
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        stringResource(R.string.friction_gate_title),
+                        topBarTitle,
                         fontWeight = FontWeight.Bold
                     )
                 },
                 navigationIcon = {
-                    if (!gatePassed) {
-                        IconButton(onClick = onBackPressed) {
+                    IconButton(onClick = onBackPressed) {
+                        if (isBlockMode) {
+                            Icon(Icons.Rounded.Close, contentDescription = stringResource(R.string.close))
+                        } else {
                             Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = stringResource(R.string.back))
                         }
                     }
@@ -131,86 +136,7 @@ fun FrictionGateScreen(
             )
         }
     ) { innerPadding ->
-        if (gatePassed) {
-            // -- Completion screen with two choices --
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(horizontal = 20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    Icons.Rounded.CheckCircle,
-                    contentDescription = null,
-                    modifier = Modifier.size(64.dp),
-                    tint = IndigoPrimary
-                )
-
-                Spacer(Modifier.height(16.dp))
-
-                Text(
-                    stringResource(R.string.gate_passed_title),
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                Text(
-                    if (unlockDurationText != null)
-                        stringResource(R.string.gate_passed_description_duration, unlockDurationText)
-                    else
-                        stringResource(R.string.gate_passed_description),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center
-                )
-
-                Spacer(Modifier.height(32.dp))
-
-                // Primary: unlock & return to blocked content
-                Button(
-                    onClick = { onPassedAndReturn?.invoke() },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
-                    )
-                ) {
-                    Text(
-                        stringResource(R.string.unlock_and_return, returnTargetLabel ?: ""),
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-
-                Spacer(Modifier.height(12.dp))
-
-                // Secondary: just unlock, don't return
-                OutlinedButton(
-                    onClick = onPassed,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(52.dp),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        contentColor = MaterialTheme.colorScheme.onSurface
-                    )
-                ) {
-                    Text(
-                        stringResource(R.string.just_unlock),
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-            }
-        } else {
-            // -- Word typing challenge --
-            Column(
+        Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
@@ -247,17 +173,22 @@ fun FrictionGateScreen(
                         modifier = Modifier.padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        // Title
-                        Text(
-                            stringResource(R.string.friction_gate_title),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
+                        if (!isBlockMode) {
+                            // In-app mode: show generic title
+                            Text(
+                                stringResource(R.string.friction_gate_title),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
 
-                        // Instruction
+                        // Instruction with context
                         Text(
-                            stringResource(R.string.override_instruction),
+                            if (isBlockMode && scheduleName != null)
+                                stringResource(R.string.block_gate_instruction, scheduleName)
+                            else
+                                stringResource(R.string.override_instruction),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -347,7 +278,7 @@ fun FrictionGateScreen(
                                 )
                             ) {
                                 Text(
-                                    stringResource(R.string.cancel),
+                                    stringResource(if (isBlockMode) R.string.keep_blocked else R.string.cancel),
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
@@ -374,6 +305,5 @@ fun FrictionGateScreen(
 
                 Spacer(Modifier.height(32.dp))
             }
-        }
     }
 }

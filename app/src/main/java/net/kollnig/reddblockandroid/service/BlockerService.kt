@@ -56,7 +56,7 @@ class BlockerService : AccessibilityService() {
                             if (blockingSchedule != null) {
                                 Log.d(TAG, "Blocking website $domain in browser ($pkg)")
                                 navigateBrowserToBlank(pkg)
-                                launchFrictionGate(blockingSchedule.id, blockedDomain = domain)
+                                launchFrictionGate(blockingSchedule.id, blockingSchedule.name, domain)
                                 return
                             }
                         }
@@ -75,28 +75,30 @@ class BlockerService : AccessibilityService() {
                 lastBlockedPkg = pkg
                 lastBlockedTime = now
                 Log.d(TAG, "Blocking app $pkg by schedule: $blockingSchedule")
-                performGlobalAction(GLOBAL_ACTION_HOME)
-                launchFrictionGate(blockingSchedule.id, blockedPackage = pkg)
+                val appLabel = getAppLabel(pkg)
+                launchFrictionGate(blockingSchedule.id, blockingSchedule.name, appLabel)
             }
         }
     }
 
-    private fun launchFrictionGate(
-        scheduleId: String,
-        blockedPackage: String? = null,
-        blockedDomain: String? = null
-    ) {
+    private fun launchFrictionGate(scheduleId: String, scheduleName: String, blockedTarget: String) {
         val intent = Intent(this, UnlockActivity::class.java).apply {
             putExtra(UnlockActivity.EXTRA_SCHEDULE_ID, scheduleId)
-            if (blockedPackage != null) {
-                putExtra(UnlockActivity.EXTRA_BLOCKED_PACKAGE, blockedPackage)
-            }
-            if (blockedDomain != null) {
-                putExtra(UnlockActivity.EXTRA_BLOCKED_DOMAIN, blockedDomain)
-            }
+            putExtra(UnlockActivity.EXTRA_SCHEDULE_NAME, scheduleName)
+            putExtra(UnlockActivity.EXTRA_BLOCKED_TARGET, blockedTarget)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         }
         startActivity(intent)
+    }
+
+    private fun getAppLabel(packageName: String): String {
+        return try {
+            this.packageManager.getApplicationLabel(
+                this.packageManager.getApplicationInfo(packageName, 0)
+            ).toString()
+        } catch (_: Exception) {
+            packageName
+        }
     }
 
     private fun shouldSkipPackage(packageName: String): Boolean {

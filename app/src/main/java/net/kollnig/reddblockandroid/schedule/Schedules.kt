@@ -107,6 +107,12 @@ object Schedules {
         saveAll(schedules)
     }
 
+    /**
+     * Toggle a schedule on or off permanently. When turning OFF, clears any
+     * pending auto re-enable — the schedule stays disabled until the user
+     * explicitly turns it back on. Temporary unlocks from the block friction
+     * gate use [temporaryUnlock] instead.
+     */
     fun toggle(id: String, context: Context) {
         Log.d(TAG, "Toggle called for schedule ID: $id")
 
@@ -115,31 +121,19 @@ object Schedules {
             return
         }
 
-        val isCurrentlyActive = isScheduleActive(id)
-
-        if (schedule.isEnabled && isCurrentlyActive) {
-            // Turning OFF
-            val updated = if (schedule.autoReenableMinutes > 0) {
-                val disabledUntil = System.currentTimeMillis() + schedule.autoReenableMinutes * 60_000L
-                schedule.copy(isEnabled = false, disabledUntil = disabledUntil)
-            } else {
-                schedule.copy(isEnabled = false, disabledUntil = null)
-            }
+        if (schedule.isEnabled) {
+            // Turning OFF permanently
+            val updated = schedule.copy(isEnabled = false, disabledUntil = null)
 
             val schedules = getAll().toMutableList()
             val index = schedules.indexOfFirst { it.id == id }
             if (index >= 0) schedules[index] = updated
             saveAll(schedules)
 
-            // Stop manual session if one exists
+            // Stop manual session if one exists and cancel any pending re-enable
             stopSession(context, id)
             ScheduleManager.cancelSchedule(context, id)
-
-            // Schedule auto-re-enable if configured
-            if (schedule.autoReenableMinutes > 0) {
-                ScheduleManager.scheduleReEnable(context, id, schedule.autoReenableMinutes * 60_000L)
-            }
-        } else if (!schedule.isEnabled) {
+        } else {
             // Turning ON (re-enabling)
             val updated = schedule.copy(isEnabled = true, disabledUntil = null)
 
@@ -148,22 +142,49 @@ object Schedules {
             if (index >= 0) schedules[index] = updated
             saveAll(schedules)
 
+            // Cancel any pending auto re-enable — we've enabled it now
+            ScheduleManager.cancelSchedule(context, id)
+
             // Only manual schedules need an explicit session
             if (updated.timing.type == ScheduleTiming.ScheduleType.MANUAL) {
                 startSession(context, updated)
             }
+        }
+    }
+
+    /**
+     * Temporarily unlock a schedule after the user passes the friction gate on
+     * the block screen. Disables blocking for the schedule's configured
+     * [Schedule.autoReenableMinutes] and schedules an automatic re-enable.
+     * If `autoReenableMinutes` is 0, the schedule stays disabled until the
+     * user turns it back on.
+     */
+    fun temporaryUnlock(context: Context, id: String) {
+        Log.d(TAG, "Temporary unlock for schedule ID: $id")
+
+        val schedule = get(id) ?: run {
+            Log.e(TAG, "Schedule not found: $id")
+            return
+        }
+        if (!schedule.isEnabled) return
+
+        val updated = if (schedule.autoReenableMinutes > 0) {
+            val disabledUntil = System.currentTimeMillis() + schedule.autoReenableMinutes * 60_000L
+            schedule.copy(isEnabled = false, disabledUntil = disabledUntil)
         } else {
-            // Enabled but not currently active — toggle to activate (manual only)
-            val updated = schedule.copy(isEnabled = true)
+            schedule.copy(isEnabled = false, disabledUntil = null)
+        }
 
-            val schedules = getAll().toMutableList()
-            val index = schedules.indexOfFirst { it.id == id }
-            if (index >= 0) schedules[index] = updated
-            saveAll(schedules)
+        val schedules = getAll().toMutableList()
+        val index = schedules.indexOfFirst { it.id == id }
+        if (index >= 0) schedules[index] = updated
+        saveAll(schedules)
 
-            if (updated.timing.type == ScheduleTiming.ScheduleType.MANUAL) {
-                startSession(context, updated)
-            }
+        stopSession(context, id)
+        ScheduleManager.cancelSchedule(context, id)
+
+        if (schedule.autoReenableMinutes > 0) {
+            ScheduleManager.scheduleReEnable(context, id, schedule.autoReenableMinutes * 60_000L)
         }
     }
 

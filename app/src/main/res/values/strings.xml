@@ -59,8 +59,8 @@
     <string name="friction_settings">Friction Settings</string>
     <string name="friction_word_count">Words required to edit</string>
     <string name="friction_word_count_desc">Number of random words you must type before you can edit or disable this active schedule</string>
-    <string name="auto_reenable">Auto re-enable after disabling</string>
-    <string name="auto_reenable_desc">When you disable this schedule, it will automatically re-enable after this duration</string>
+    <string name="auto_reenable">Temporary unlock duration</string>
+    <string name="auto_reenable_desc">How long blocks are lifted after passing the friction gate on the block screen. Blocks automatically resume after this duration.</string>
     <string name="auto_reenable_never">Never</string>
     <string name="auto_reenable_5min">5 minutes</string>
     <string name="auto_reenable_10min">10 minutes</string>
@@ -76,15 +76,15 @@
     <string name="friction_gate_title">Confirm Action</string>
     <string name="friction_gate_desc">Type each word below to confirm you want to proceed. This helps prevent impulsive changes.</string>
     <string name="friction_gate_progress">Word %1$d of %2$d</string>
+    <string name="close">Close</string>
+    <string name="keep_blocked">Keep blocked</string>
+    <string name="block_gate_title">Unlock %s</string>
+    <string name="block_gate_title_duration">Unlock %1$s for %2$s</string>
+    <string name="block_gate_instruction">Blocked by your \"%1$s\" schedule. To unlock, type the following:</string>
     <string name="friction_gate_input_label">Type the word above</string>
     <string name="friction_gate_error">That doesn\'t match. Try again.</string>
     <string name="friction_gate_next">Next</string>
     <string name="friction_gate_finish">Finish</string>
-    <string name="gate_passed_title">Schedule Unlocked</string>
-    <string name="gate_passed_description">The block has been temporarily lifted. What would you like to do?</string>
-    <string name="gate_passed_description_duration">The block will be lifted for %s. What would you like to do?</string>
-    <string name="unlock_and_return">Unlock &amp; open %s</string>
-    <string name="just_unlock">Just unlock</string>
 
     <!-- Permissions Screen -->
     <string name="permissions_info">These permissions are needed for ReDD Block to function properly.</string>
