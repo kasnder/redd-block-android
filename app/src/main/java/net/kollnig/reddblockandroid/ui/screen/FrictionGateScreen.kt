@@ -357,7 +357,7 @@ fun FrictionGateScreen(
                             keyboardOptions = KeyboardOptions(
                                 imeAction = ImeAction.Done,
                                 autoCorrectEnabled = false,
-                                keyboardType = if (useChineseMode) KeyboardType.Text else KeyboardType.Password
+                                keyboardType = KeyboardType.Password
                             ),
                             keyboardActions = KeyboardActions(onDone = { checkWord() }),
                             colors = OutlinedTextFieldDefaults.colors(
