@@ -289,21 +289,21 @@ fun FrictionGateScreen(
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
-                                        cw.character,
+                                        cw.pinyin,
                                         style = MaterialTheme.typography.displaySmall,
                                         fontWeight = FontWeight.Bold,
                                         textAlign = TextAlign.Center,
                                         color = IndigoPrimary
                                     )
                                     Text(
-                                        cw.pinyin,
+                                        cw.meaning,
                                         style = MaterialTheme.typography.titleMedium,
                                         fontWeight = FontWeight.SemiBold,
                                         textAlign = TextAlign.Center,
-                                        color = IndigoPrimary
+                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        cw.meaning,
+                                        cw.character,
                                         style = MaterialTheme.typography.bodyMedium,
                                         textAlign = TextAlign.Center,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
