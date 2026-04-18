@@ -86,6 +86,7 @@
     <string name="friction_gate_error">That doesn\'t match. Try again.</string>
     <string name="friction_gate_error_chinese">Incorrect. The pinyin is: %s</string>
     <string name="friction_gate_pinyin_hint">Type the pinyin\u2026</string>
+    <string name="friction_gate_reveal_pinyin">Reveal pinyin</string>
     <string name="friction_gate_next">Next</string>
     <string name="friction_gate_finish">Finish</string>
 

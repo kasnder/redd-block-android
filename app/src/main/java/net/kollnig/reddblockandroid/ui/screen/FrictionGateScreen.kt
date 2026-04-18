@@ -104,6 +104,7 @@ fun FrictionGateScreen(
     var currentWordIndex by remember { mutableIntStateOf(0) }
     var userInput by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
+    var pinyinRevealed by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -137,6 +138,7 @@ fun FrictionGateScreen(
             } else {
                 currentWordIndex++
                 userInput = ""
+                pinyinRevealed = false
             }
         } else {
             isError = true
@@ -289,18 +291,11 @@ fun FrictionGateScreen(
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
-                                        cw.pinyin,
+                                        cw.meaning,
                                         style = MaterialTheme.typography.displaySmall,
                                         fontWeight = FontWeight.Bold,
                                         textAlign = TextAlign.Center,
                                         color = IndigoPrimary
-                                    )
-                                    Text(
-                                        cw.meaning,
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.SemiBold,
-                                        textAlign = TextAlign.Center,
-                                        color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
                                         cw.character,
@@ -308,6 +303,19 @@ fun FrictionGateScreen(
                                         textAlign = TextAlign.Center,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    if (pinyinRevealed) {
+                                        Text(
+                                            cw.pinyin,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            textAlign = TextAlign.Center,
+                                            color = IndigoPrimary
+                                        )
+                                    } else {
+                                        TextButton(onClick = { pinyinRevealed = true }) {
+                                            Text(stringResource(R.string.friction_gate_reveal_pinyin))
+                                        }
+                                    }
                                     IconButton(onClick = {
                                         tts?.speak(cw.character, TextToSpeech.QUEUE_FLUSH, null, null)
                                     }) {
