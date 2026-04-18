@@ -121,11 +121,12 @@ fun FrictionGateScreen(
     fun normalizeUserPinyin(input: String): String =
         java.text.Normalizer.normalize(input.trim().lowercase(), java.text.Normalizer.Form.NFD)
             .replace(Regex("[\\p{InCombiningDiacriticalMarks}]"), "")
-            .replace(Regex("\\s+"), "")
+            .replace(Regex("[^a-z]"), "")
 
     fun checkWord() {
         val isCorrect = if (useChineseMode) {
-            normalizeUserPinyin(userInput) == chineseWords[currentWordIndex].pinyinNormalized
+            val expected = chineseWords[currentWordIndex].pinyinNormalized.replace(Regex("[^a-z]"), "")
+            normalizeUserPinyin(userInput) == expected
         } else {
             userInput.trim().equals(words[currentWordIndex], ignoreCase = true)
         }
@@ -291,6 +292,13 @@ fun FrictionGateScreen(
                                         cw.character,
                                         style = MaterialTheme.typography.displaySmall,
                                         fontWeight = FontWeight.Bold,
+                                        textAlign = TextAlign.Center,
+                                        color = IndigoPrimary
+                                    )
+                                    Text(
+                                        cw.pinyin,
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
                                         textAlign = TextAlign.Center,
                                         color = IndigoPrimary
                                     )
