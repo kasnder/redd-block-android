@@ -104,6 +104,7 @@ fun FrictionGateScreen(
     var currentWordIndex by remember { mutableIntStateOf(0) }
     var userInput by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
+    var pinyinRevealed by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -121,11 +122,12 @@ fun FrictionGateScreen(
     fun normalizeUserPinyin(input: String): String =
         java.text.Normalizer.normalize(input.trim().lowercase(), java.text.Normalizer.Form.NFD)
             .replace(Regex("[\\p{InCombiningDiacriticalMarks}]"), "")
-            .replace(Regex("\\s+"), "")
+            .replace(Regex("[^a-z]"), "")
 
     fun checkWord() {
         val isCorrect = if (useChineseMode) {
-            normalizeUserPinyin(userInput) == chineseWords[currentWordIndex].pinyinNormalized
+            val expected = chineseWords[currentWordIndex].pinyinNormalized.replace(Regex("[^a-z]"), "")
+            normalizeUserPinyin(userInput) == expected
         } else {
             userInput.trim().equals(words[currentWordIndex], ignoreCase = true)
         }
@@ -136,6 +138,7 @@ fun FrictionGateScreen(
             } else {
                 currentWordIndex++
                 userInput = ""
+                pinyinRevealed = false
             }
         } else {
             isError = true
@@ -288,18 +291,31 @@ fun FrictionGateScreen(
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
-                                        cw.character,
+                                        cw.meaning,
                                         style = MaterialTheme.typography.displaySmall,
                                         fontWeight = FontWeight.Bold,
                                         textAlign = TextAlign.Center,
                                         color = IndigoPrimary
                                     )
                                     Text(
-                                        cw.meaning,
+                                        cw.character,
                                         style = MaterialTheme.typography.bodyMedium,
                                         textAlign = TextAlign.Center,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    if (pinyinRevealed) {
+                                        Text(
+                                            cw.pinyin,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            textAlign = TextAlign.Center,
+                                            color = IndigoPrimary
+                                        )
+                                    } else {
+                                        TextButton(onClick = { pinyinRevealed = true }) {
+                                            Text(stringResource(R.string.friction_gate_reveal_pinyin))
+                                        }
+                                    }
                                     IconButton(onClick = {
                                         tts?.speak(cw.character, TextToSpeech.QUEUE_FLUSH, null, null)
                                     }) {
@@ -357,7 +373,7 @@ fun FrictionGateScreen(
                             keyboardOptions = KeyboardOptions(
                                 imeAction = ImeAction.Done,
                                 autoCorrectEnabled = false,
-                                keyboardType = if (useChineseMode) KeyboardType.Text else KeyboardType.Password
+                                keyboardType = KeyboardType.Password
                             ),
                             keyboardActions = KeyboardActions(onDone = { checkWord() }),
                             colors = OutlinedTextFieldDefaults.colors(
