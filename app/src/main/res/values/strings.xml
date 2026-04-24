@@ -84,11 +84,11 @@
     <string name="block_gate_instruction">Blocked by your \"%1$s\" schedule. To unlock, type the following:</string>
     <string name="friction_gate_input_label">Type the word above</string>
     <string name="friction_gate_error">That doesn\'t match. Try again.</string>
-    <string name="friction_gate_error_chinese">Incorrect. The pinyin is: %s</string>
     <string name="friction_gate_pinyin_hint">Type the pinyin\u2026</string>
     <string name="friction_gate_reveal_pinyin">Reveal pinyin</string>
     <string name="friction_gate_next">Next</string>
     <string name="friction_gate_finish">Finish</string>
+    <string name="friction_gate_weekly_stats">This week: %1$d words \u00b7 ~%2$d min typing</string>
 
     <!-- Permissions Screen -->
     <string name="permissions_info">These permissions are needed for ReDD Block to function properly.</string>

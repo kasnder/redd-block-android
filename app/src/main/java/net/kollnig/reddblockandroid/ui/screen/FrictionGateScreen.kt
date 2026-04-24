@@ -31,6 +31,7 @@ import net.kollnig.reddblockandroid.BuildConfig
 import net.kollnig.reddblockandroid.R
 import net.kollnig.reddblockandroid.data.CHINESE_VOCABULARY
 import net.kollnig.reddblockandroid.ui.theme.*
+import net.kollnig.reddblockandroid.util.ChineseTypingStats
 
 // Common English words for the friction gate
 private val WORD_LIST = listOf(
@@ -105,6 +106,8 @@ fun FrictionGateScreen(
     var userInput by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
     var pinyinRevealed by remember { mutableStateOf(false) }
+    var wordStartMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    var weeklyStats by remember { mutableStateOf(ChineseTypingStats.getWeeklyStats()) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
 
@@ -133,15 +136,21 @@ fun FrictionGateScreen(
         }
         if (isCorrect) {
             isError = false
+            if (useChineseMode) {
+                ChineseTypingStats.recordWord(System.currentTimeMillis() - wordStartMillis)
+                weeklyStats = ChineseTypingStats.getWeeklyStats()
+            }
             if (currentWordIndex >= totalCount - 1) {
                 onPassed()
             } else {
                 currentWordIndex++
                 userInput = ""
                 pinyinRevealed = false
+                wordStartMillis = System.currentTimeMillis()
             }
         } else {
             isError = true
+            if (useChineseMode) pinyinRevealed = true
         }
     }
 
@@ -362,12 +371,7 @@ fun FrictionGateScreen(
                             isError = isError,
                             supportingText = if (isError) {
                                 {
-                                    Text(
-                                        if (useChineseMode)
-                                            stringResource(R.string.friction_gate_error_chinese, chineseWords[currentWordIndex].pinyin)
-                                        else
-                                            stringResource(R.string.friction_gate_error)
-                                    )
+                                    Text(stringResource(R.string.friction_gate_error))
                                 }
                             } else null,
                             keyboardOptions = KeyboardOptions(
@@ -420,6 +424,21 @@ fun FrictionGateScreen(
                             }
                         }
                     }
+                }
+
+                if (useChineseMode) {
+                    val minutes = (weeklyStats.totalDurationMs / 60_000L).toInt()
+                    Text(
+                        text = stringResource(
+                            R.string.friction_gate_weekly_stats,
+                            weeklyStats.wordCount,
+                            minutes
+                        ),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
 
                 Spacer(Modifier.height(32.dp))
