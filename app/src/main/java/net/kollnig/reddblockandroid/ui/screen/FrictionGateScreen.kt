@@ -105,7 +105,7 @@ fun FrictionGateScreen(
     var currentWordIndex by remember { mutableIntStateOf(0) }
     var userInput by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
-    var pinyinRevealed by remember { mutableStateOf(false) }
+    var pinyinManuallyRevealed by remember { mutableStateOf(false) }
     var wordStartMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var weeklyStats by remember { mutableStateOf(ChineseTypingStats.getWeeklyStats()) }
     val focusRequester = remember { FocusRequester() }
@@ -145,12 +145,11 @@ fun FrictionGateScreen(
             } else {
                 currentWordIndex++
                 userInput = ""
-                pinyinRevealed = false
+                pinyinManuallyRevealed = false
                 wordStartMillis = System.currentTimeMillis()
             }
         } else {
             isError = true
-            if (useChineseMode) pinyinRevealed = true
         }
     }
 
@@ -312,7 +311,7 @@ fun FrictionGateScreen(
                                         textAlign = TextAlign.Center,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
-                                    if (pinyinRevealed) {
+                                    if (isError || pinyinManuallyRevealed) {
                                         Text(
                                             cw.pinyin,
                                             style = MaterialTheme.typography.titleMedium,
@@ -321,7 +320,7 @@ fun FrictionGateScreen(
                                             color = IndigoPrimary
                                         )
                                     } else {
-                                        TextButton(onClick = { pinyinRevealed = true }) {
+                                        TextButton(onClick = { pinyinManuallyRevealed = true }) {
                                             Text(stringResource(R.string.friction_gate_reveal_pinyin))
                                         }
                                     }
@@ -369,11 +368,6 @@ fun FrictionGateScreen(
                             shape = RoundedCornerShape(10.dp),
                             singleLine = true,
                             isError = isError,
-                            supportingText = if (isError) {
-                                {
-                                    Text(stringResource(R.string.friction_gate_error))
-                                }
-                            } else null,
                             keyboardOptions = KeyboardOptions(
                                 imeAction = ImeAction.Done,
                                 autoCorrectEnabled = false,
