@@ -506,7 +506,7 @@ private fun AssistantMessageCard(
 fun assistantWelcomeMessage(): AssistantMessage {
     return AssistantMessage(
         AssistantMessage.Role.ASSISTANT,
-        "Aloha, I’m Ulrik. I help turn app-use problems into small ReDD Block experiments, grounded in digital self-control research. I can draft new schedules or suggest reviewed changes to existing ones, but I won’t weaken blocks without your review."
+        "Aloha, I’m Ulrik. I can help you set up blocks that fit the moments when distracting apps are hardest to resist. Tell me what gets in the way, or ask me to review your current schedules."
     )
 }
 
