@@ -211,12 +211,6 @@ fun AssistantScreen(
             }
 
             if (isFreshChat) {
-                DataSharingNotice(
-                    usageSharing = usageSharing,
-                    motionSharing = motionSharing,
-                    wifiSharing = wifiSharing
-                )
-                Spacer(Modifier.height(8.dp))
                 FlowRow(
                     modifier = Modifier
                         .fillMaxWidth()
