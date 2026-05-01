@@ -7,12 +7,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.*
@@ -57,7 +55,7 @@ fun CreateScheduleScreen(
     onFrictionGateRequired: (wordCount: Int, onPassed: () -> Unit) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
-    val existingSchedule = scheduleId?.let { Schedules.get(it) }
+    val existingSchedule = remember(scheduleId) { scheduleId?.let { Schedules.get(it) } }
     val initialSchedule = draftSchedule?.takeIf { draft ->
         scheduleId == null || draft.id == scheduleId
     } ?: existingSchedule
@@ -105,10 +103,14 @@ fun CreateScheduleScreen(
     }
 
     var showAppPicker by remember { mutableStateOf(false) }
-    var showWebsiteDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
+    var inlineWebsite by remember { mutableStateOf("") }
+    val domainPattern = remember {
+        Regex("^[a-zA-Z0-9][a-zA-Z0-9.-]*\\.[a-zA-Z]{2,}$")
+    }
+    val appNameCache = rememberAppLabels(blockedApps)
 
     val autoReenableOptions = listOf(
         0 to stringResource(R.string.auto_reenable_never),
@@ -267,41 +269,44 @@ fun CreateScheduleScreen(
             )
         }
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(innerPadding),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             // ── NAME section ──
-            SectionHeader(stringResource(R.string.schedule_name).uppercase())
-            OutlinedTextField(
-                value = scheduleName,
-                onValueChange = { scheduleName = it },
-                placeholder = { Text(stringResource(R.string.schedule_name), color = MaterialTheme.colorScheme.outline) },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                singleLine = true,
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    focusedContainerColor = MaterialTheme.colorScheme.surface
+            item {
+                SectionHeader(stringResource(R.string.schedule_name).uppercase())
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = scheduleName,
+                    onValueChange = { scheduleName = it },
+                    placeholder = { Text(stringResource(R.string.schedule_name), color = MaterialTheme.colorScheme.outline) },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                        focusedContainerColor = MaterialTheme.colorScheme.surface
+                    )
                 )
-            )
+            }
 
             // ── WEBSITES section ──
-            SectionHeader(stringResource(R.string.blocked_websites).uppercase())
-
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(1.dp, RoundedCornerShape(12.dp)),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(modifier = Modifier.padding(12.dp)) {
+            item {
+                SectionHeader(stringResource(R.string.blocked_websites).uppercase())
+                Spacer(Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(1.dp, RoundedCornerShape(12.dp)),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
                     // Chip grid of blocked websites
                     if (blockedWebsites.isNotEmpty()) {
                         FlowRow(
@@ -342,10 +347,6 @@ fun CreateScheduleScreen(
                     }
 
                     // Add website inline
-                    var inlineWebsite by remember { mutableStateOf("") }
-                    val domainPattern = remember {
-                        Regex("^[a-zA-Z0-9][a-zA-Z0-9.-]*\\.[a-zA-Z]{2,}$")
-                    }
                     fun cleanDomain(input: String): String {
                         var d = input.lowercase().trim()
                         // Strip protocol prefixes and paths
@@ -379,170 +380,150 @@ fun CreateScheduleScreen(
                     )
                 }
             }
-
-            // ── APPS section ──
-            SectionHeader(stringResource(R.string.blocked_apps).uppercase())
-
-            // Cache app name lookups
-            val appNameCache = remember(blockedApps) {
-                blockedApps.associateWith { pkg ->
-                    try {
-                        context.packageManager.getApplicationLabel(
-                            context.packageManager.getApplicationInfo(pkg, 0)
-                        ).toString()
-                    } catch (_: PackageManager.NameNotFoundException) {
-                        pkg
-                    }
-                }
             }
 
-            if (blockedApps.isNotEmpty()) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(1.dp, RoundedCornerShape(12.dp)),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column {
-                        blockedApps.forEachIndexed { index, pkg ->
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    appNameCache[pkg] ?: pkg,
-                                    modifier = Modifier.weight(1f),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    color = MaterialTheme.colorScheme.onSurface
+            // ── APPS section ──
+            item {
+                SectionHeader(stringResource(R.string.blocked_apps).uppercase())
+                Spacer(Modifier.height(8.dp))
+
+                if (blockedApps.isNotEmpty()) {
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(1.dp, RoundedCornerShape(12.dp)),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 260.dp)
+                        ) {
+                            items(blockedApps, key = { it }) { pkg ->
+                                BlockedAppRow(
+                                    packageName = pkg,
+                                    label = appNameCache[pkg] ?: pkg,
+                                    onRemove = { blockedApps = blockedApps - pkg }
                                 )
-                                IconButton(
-                                    onClick = { blockedApps = blockedApps - pkg },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Rounded.Close,
-                                        contentDescription = stringResource(R.string.remove),
-                                        modifier = Modifier.size(16.dp),
-                                        tint = TextHint
-                                    )
+                                if (pkg != blockedApps.lastOrNull()) {
+                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                                 }
-                            }
-                            if (index < blockedApps.lastIndex) {
-                                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                             }
                         }
                     }
+                    Spacer(Modifier.height(8.dp))
+                }
+
+                Button(
+                    onClick = { showAppPicker = true },
+                    modifier = Modifier.fillMaxWidth().height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                ) {
+                    Icon(Icons.Rounded.Apps, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.add_app), fontWeight = FontWeight.SemiBold)
                 }
             }
 
-            Button(
-                onClick = { showAppPicker = true },
-                modifier = Modifier.fillMaxWidth().height(48.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
-            ) {
-                Icon(Icons.Rounded.Apps, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.add_app), fontWeight = FontWeight.SemiBold)
-            }
-
             // ── SCHEDULE TYPE section ──
-            SectionHeader(stringResource(R.string.schedule_type).uppercase())
+            item {
+                SectionHeader(stringResource(R.string.schedule_type).uppercase())
+                Spacer(Modifier.height(8.dp))
 
-            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-                val types = ScheduleTiming.ScheduleType.entries
-                types.forEachIndexed { index, type ->
-                    SegmentedButton(
-                        selected = scheduleType == type,
-                        onClick = { scheduleType = type },
-                        shape = SegmentedButtonDefaults.itemShape(index, types.size)
-                    ) {
-                        Text(
-                            when (type) {
-                                ScheduleTiming.ScheduleType.DAILY -> stringResource(R.string.daily)
-                                ScheduleTiming.ScheduleType.WEEKLY -> stringResource(R.string.weekly)
-                                ScheduleTiming.ScheduleType.MANUAL -> stringResource(R.string.manual)
-                            }
-                        )
+                SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                    val types = ScheduleTiming.ScheduleType.entries
+                    types.forEachIndexed { index, type ->
+                        SegmentedButton(
+                            selected = scheduleType == type,
+                            onClick = { scheduleType = type },
+                            shape = SegmentedButtonDefaults.itemShape(index, types.size)
+                        ) {
+                            Text(
+                                when (type) {
+                                    ScheduleTiming.ScheduleType.DAILY -> stringResource(R.string.daily)
+                                    ScheduleTiming.ScheduleType.WEEKLY -> stringResource(R.string.weekly)
+                                    ScheduleTiming.ScheduleType.MANUAL -> stringResource(R.string.manual)
+                                }
+                            )
+                        }
                     }
                 }
             }
 
             // ── Time pickers (not for manual) ──
             if (scheduleType != ScheduleTiming.ScheduleType.MANUAL) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Start time card
-                    Card(
-                        onClick = { showStartTimePicker = true },
-                        modifier = Modifier
-                            .weight(1f)
-                            .shadow(1.dp, RoundedCornerShape(12.dp)),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                item {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Text(
-                                stringResource(R.string.start_time).uppercase(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                TimeBox(String.format("%02d", selectedTime.hour))
-                                Text(":", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                TimeBox(String.format("%02d", selectedTime.minute))
+                        // Start time card
+                        Card(
+                            onClick = { showStartTimePicker = true },
+                            modifier = Modifier
+                                .weight(1f)
+                                .shadow(1.dp, RoundedCornerShape(12.dp)),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Text(
+                                    stringResource(R.string.start_time).uppercase(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    TimeBox(String.format("%02d", selectedTime.hour))
+                                    Text(":", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    TimeBox(String.format("%02d", selectedTime.minute))
+                                }
                             }
                         }
-                    }
 
-                    // Arrow
-                    Box(
-                        modifier = Modifier.align(Alignment.CenterVertically).padding(top = 16.dp)
-                    ) {
-                        Text("→", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold, fontSize = 18.sp)
-                    }
+                        // Arrow
+                        Box(
+                            modifier = Modifier.align(Alignment.CenterVertically).padding(top = 16.dp)
+                        ) {
+                            Text("→", color = MaterialTheme.colorScheme.onSurfaceVariant, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                        }
 
-                    // End time card
-                    Card(
-                        onClick = { showEndTimePicker = true },
-                        modifier = Modifier
-                            .weight(1f)
-                            .shadow(1.dp, RoundedCornerShape(12.dp)),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                    ) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Text(
-                                stringResource(R.string.end_time).uppercase(),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                fontWeight = FontWeight.Bold,
-                                letterSpacing = 0.5.sp
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                TimeBox(String.format("%02d", selectedEndTime.hour))
-                                Text(":", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                TimeBox(String.format("%02d", selectedEndTime.minute))
+                        // End time card
+                        Card(
+                            onClick = { showEndTimePicker = true },
+                            modifier = Modifier
+                                .weight(1f)
+                                .shadow(1.dp, RoundedCornerShape(12.dp)),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                        ) {
+                            Column(modifier = Modifier.padding(14.dp)) {
+                                Text(
+                                    stringResource(R.string.end_time).uppercase(),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontWeight = FontWeight.Bold,
+                                    letterSpacing = 0.5.sp
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    TimeBox(String.format("%02d", selectedEndTime.hour))
+                                    Text(":", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    TimeBox(String.format("%02d", selectedEndTime.minute))
+                                }
                             }
                         }
                     }
@@ -551,32 +532,35 @@ fun CreateScheduleScreen(
 
             // ── Day selector (weekly only) ──
             if (scheduleType == ScheduleTiming.ScheduleType.WEEKLY) {
-                SectionHeader(stringResource(R.string.days).uppercase())
+                item {
+                    SectionHeader(stringResource(R.string.days).uppercase())
+                    Spacer(Modifier.height(8.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
-                ) {
-                    DayOfWeek.entries.forEach { day ->
-                        val isSelected = selectedDays.contains(day)
-                        Surface(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(CircleShape)
-                                .clickable {
-                                    selectedDays = if (isSelected) selectedDays - day
-                                    else selectedDays + day
-                                },
-                            shape = CircleShape,
-                            color = if (isSelected) DayChipSelected else MaterialTheme.colorScheme.surfaceVariant
-                        ) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Text(
-                                    day.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        DayOfWeek.entries.forEach { day ->
+                            val isSelected = selectedDays.contains(day)
+                            Surface(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(CircleShape)
+                                    .clickable {
+                                        selectedDays = if (isSelected) selectedDays - day
+                                        else selectedDays + day
+                                    },
+                                shape = CircleShape,
+                                color = if (isSelected) DayChipSelected else MaterialTheme.colorScheme.surfaceVariant
+                            ) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Text(
+                                        day.getDisplayName(TextStyle.NARROW, Locale.getDefault()),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
                             }
                         }
                     }
@@ -584,9 +568,89 @@ fun CreateScheduleScreen(
             }
 
             if (scheduleType != ScheduleTiming.ScheduleType.MANUAL) {
-                // ── Context conditions ──
-                SectionHeader("ACTIVE WHEN")
+                item {
+                    // ── Context conditions ──
+                    SectionHeader("ACTIVE WHEN")
+                    Spacer(Modifier.height(8.dp))
 
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(1.dp, RoundedCornerShape(12.dp)),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            MotionConditionPicker(
+                                selected = motionCondition,
+                                onSelected = { motionCondition = it }
+                            )
+
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "Connected to Wi-Fi",
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                    Text(
+                                        "Uses the current network name. If Wi-Fi identity is unavailable, this condition is inactive.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.outline
+                                    )
+                                }
+                                Switch(
+                                    checked = wifiConditionEnabled,
+                                    onCheckedChange = { enabled ->
+                                        wifiConditionEnabled = enabled
+                                        if (enabled && wifiSsid.isBlank()) {
+                                            currentWifi?.let { wifi ->
+                                                wifiSsid = wifi.ssid
+                                            }
+                                        }
+                                    }
+                                )
+                            }
+
+                            if (wifiConditionEnabled) {
+                                WifiConditionEditor(
+                                    savedNetworks = savedWifiNetworks,
+                                    selectedLabel = selectedWifiLabel,
+                                    onNetworkSelected = { network ->
+                                        selectedWifiLabel = network.label
+                                        network.ssid?.let { wifiSsid = it }
+                                    },
+                                    ssid = wifiSsid,
+                                    onSsidChange = { wifiSsid = it },
+                                    currentWifi = currentWifi,
+                                    onUseCurrentWifi = {
+                                        currentWifi?.let { wifi ->
+                                            wifiSsid = wifi.ssid
+                                        }
+                                    },
+                                    isValid = isWifiConditionValid()
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+
+            // ── FRICTION SETTINGS section ──
+            item {
+                SectionHeader(stringResource(R.string.friction_settings).uppercase())
+                Spacer(Modifier.height(8.dp))
+
+                // Friction word count
                 Card(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -594,200 +658,130 @@ fun CreateScheduleScreen(
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(14.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        MotionConditionPicker(
-                            selected = motionCondition,
-                            onSelected = { motionCondition = it }
-                        )
-
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
+                    Column(modifier = Modifier.padding(14.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    "Connected to Wi-Fi",
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    "Uses the current network name. If Wi-Fi identity is unavailable, this condition is inactive.",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.outline
-                                )
-                            }
-                            Switch(
-                                checked = wifiConditionEnabled,
-                                onCheckedChange = { enabled ->
-                                    wifiConditionEnabled = enabled
-                                    if (enabled && wifiSsid.isBlank()) {
-                                        currentWifi?.let { wifi ->
-                                            wifiSsid = wifi.ssid
-                                        }
-                                    }
-                                }
+                            Text(
+                                stringResource(R.string.friction_word_count),
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "$frictionWordCount",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = IndigoPrimary
                             )
                         }
-
-                        if (wifiConditionEnabled) {
-                            WifiConditionEditor(
-                                savedNetworks = savedWifiNetworks,
-                                selectedLabel = selectedWifiLabel,
-                                onNetworkSelected = { network ->
-                                    selectedWifiLabel = network.label
-                                    network.ssid?.let { wifiSsid = it }
-                                },
-                                ssid = wifiSsid,
-                                onSsidChange = { wifiSsid = it },
-                                currentWifi = currentWifi,
-                                onUseCurrentWifi = {
-                                    currentWifi?.let { wifi ->
-                                        wifiSsid = wifi.ssid
-                                    }
-                                },
-                                isValid = isWifiConditionValid()
+                        Slider(
+                            value = frictionWordCount.toFloat(),
+                            onValueChange = { frictionWordCount = it.toInt() },
+                            valueRange = 1f..50f,
+                            steps = 48,
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = SliderDefaults.colors(
+                                thumbColor = IndigoPrimary,
+                                activeTrackColor = IndigoPrimary
                             )
-                        }
-                    }
-                }
-            }
-
-            // ── FRICTION SETTINGS section ──
-            SectionHeader(stringResource(R.string.friction_settings).uppercase())
-
-            // Friction word count
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(1.dp, RoundedCornerShape(12.dp)),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            stringResource(R.string.friction_word_count),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            "$frictionWordCount",
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = IndigoPrimary
+                            stringResource(R.string.friction_word_count_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
                         )
                     }
-                    Slider(
-                        value = frictionWordCount.toFloat(),
-                        onValueChange = { frictionWordCount = it.toInt() },
-                        valueRange = 1f..50f,
-                        steps = 48,
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = SliderDefaults.colors(
-                            thumbColor = IndigoPrimary,
-                            activeTrackColor = IndigoPrimary
-                        )
-                    )
-                    Text(
-                        stringResource(R.string.friction_word_count_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
                 }
             }
 
             // Auto re-enable
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .shadow(1.dp, RoundedCornerShape(12.dp)),
-                shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
-                    Text(
-                        stringResource(R.string.auto_reenable),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                    Spacer(Modifier.height(8.dp))
-                    var expanded by remember { mutableStateOf(false) }
-                    ExposedDropdownMenuBox(
-                        expanded = expanded,
-                        onExpandedChange = { expanded = it }
-                    ) {
-                        OutlinedTextField(
-                            value = autoReenableOptions.firstOrNull { it.first == autoReenableMinutes }?.second ?: "",
-                            onValueChange = {},
-                            readOnly = true,
-                            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
-                            )
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(1.dp, RoundedCornerShape(12.dp)),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(14.dp)) {
+                        Text(
+                            stringResource(R.string.auto_reenable),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                        ExposedDropdownMenu(
+                        Spacer(Modifier.height(8.dp))
+                        var expanded by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(
                             expanded = expanded,
-                            onDismissRequest = { expanded = false }
+                            onExpandedChange = { expanded = it }
                         ) {
-                            autoReenableOptions.forEach { (minutes, label) ->
-                                DropdownMenuItem(
-                                    text = { Text(label) },
-                                    onClick = {
-                                        autoReenableMinutes = minutes
-                                        expanded = false
-                                    }
+                            OutlinedTextField(
+                                value = autoReenableOptions.firstOrNull { it.first == autoReenableMinutes }?.second ?: "",
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(),
+                                shape = RoundedCornerShape(10.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
                                 )
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                autoReenableOptions.forEach { (minutes, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = {
+                                            autoReenableMinutes = minutes
+                                            expanded = false
+                                        }
+                                    )
+                                }
                             }
                         }
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            stringResource(R.string.auto_reenable_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
                     }
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        stringResource(R.string.auto_reenable_desc),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
                 }
             }
 
             // ── Save button ──
-            Button(
-                onClick = { saveSchedule() },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                enabled = scheduleName.isNotBlank() && isWifiConditionValid()
-            ) {
-                Icon(Icons.Rounded.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    stringResource(R.string.save),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+            item {
+                Button(
+                    onClick = { saveSchedule() },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    ),
+                    enabled = scheduleName.isNotBlank() && isWifiConditionValid()
+                ) {
+                    Icon(Icons.Rounded.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(R.string.save),
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
-            Spacer(Modifier.height(32.dp))
+            item { Spacer(Modifier.height(16.dp)) }
         }
     }
 
@@ -889,6 +883,62 @@ private fun TimeBox(value: String) {
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+
+@Composable
+private fun rememberAppLabels(packageNames: List<String>): Map<String, String> {
+    val context = LocalContext.current
+    var labels by remember { mutableStateOf(packageNames.associateWith { it }) }
+
+    LaunchedEffect(packageNames) {
+        labels = withContext(Dispatchers.IO) {
+            packageNames.associateWith { pkg ->
+                try {
+                    context.packageManager.getApplicationLabel(
+                        context.packageManager.getApplicationInfo(pkg, 0)
+                    ).toString()
+                } catch (_: PackageManager.NameNotFoundException) {
+                    pkg
+                }
+            }
+        }
+    }
+
+    return labels
+}
+
+@Composable
+private fun BlockedAppRow(
+    packageName: String,
+    label: String,
+    onRemove: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        IconButton(
+            onClick = onRemove,
+            modifier = Modifier.size(28.dp)
+        ) {
+            Icon(
+                Icons.Rounded.Close,
+                contentDescription = stringResource(R.string.remove),
+                modifier = Modifier.size(16.dp),
+                tint = TextHint
+            )
+        }
     }
 }
 

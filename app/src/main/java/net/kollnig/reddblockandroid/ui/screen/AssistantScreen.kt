@@ -8,7 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -191,7 +191,12 @@ fun AssistantScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(vertical = 12.dp)
             ) {
-                items(messages) { message ->
+                itemsIndexed(
+                    items = messages,
+                    key = { index, message ->
+                        "${message.role}-${message.text.hashCode()}-${index}"
+                    }
+                ) { _, message ->
                     AssistantMessageCard(
                         message = message,
                         onReviewProposal = onReviewProposal,

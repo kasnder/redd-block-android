@@ -3,10 +3,10 @@ package net.kollnig.reddblockandroid.ui.screen
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.*
@@ -47,8 +47,9 @@ fun HomeScreen(
     var isAccessibilityEnabled by remember { mutableStateOf(context.isAccessibilityServiceEnabled()) }
 
     var schedules by remember { mutableStateOf(Schedules.getAll()) }
-    // Incremented to force recomposition after schedule state changes
-    var refreshTick by remember { mutableIntStateOf(0) }
+    var activeScheduleIds by remember {
+        mutableStateOf(Schedules.getActiveScheduleIds(schedules, context))
+    }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -104,14 +105,16 @@ fun HomeScreen(
 
     fun refreshSchedules() {
         val now = System.currentTimeMillis()
-        for (schedule in Schedules.getAll()) {
+        var latestSchedules = Schedules.getAll()
+        for (schedule in latestSchedules) {
             val until = schedule.disabledUntil
             if (!schedule.isEnabled && until != null && until <= now) {
                 Schedules.reEnableSchedule(context, schedule.id)
             }
         }
-        schedules = Schedules.getAll()
-        refreshTick++
+        latestSchedules = Schedules.getAll()
+        schedules = latestSchedules
+        activeScheduleIds = Schedules.getActiveScheduleIds(latestSchedules, context)
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -130,139 +133,138 @@ fun HomeScreen(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp),
+                .padding(innerPadding),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(16.dp))
-
             // ── Status card ──
             if (!isAccessibilityEnabled) {
-                Card(
-                    onClick = { showAccessibilityDialog = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(4.dp, RoundedCornerShape(16.dp)),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
-                ) {
-                    Row(
+                item {
+                    Card(
+                        onClick = { showAccessibilityDialog = true },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            .shadow(4.dp, RoundedCornerShape(16.dp)),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
                     ) {
-                        Surface(
-                            modifier = Modifier.size(40.dp),
-                            shape = CircleShape,
-                            color = SoftRed.copy(alpha = 0.15f)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.Rounded.Warning,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(20.dp),
-                                    tint = SoftRed
+                            Surface(
+                                modifier = Modifier.size(40.dp),
+                                shape = CircleShape,
+                                color = SoftRed.copy(alpha = 0.15f)
+                            ) {
+                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                    Icon(
+                                        Icons.Rounded.Warning,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = SoftRed
+                                    )
+                                }
+                            }
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    stringResource(R.string.setup_required),
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    stringResource(R.string.setup_required_desc),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                        }
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                stringResource(R.string.setup_required),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                            Text(
-                                stringResource(R.string.setup_required_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            Icon(
+                                Icons.AutoMirrored.Rounded.ArrowForward,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Icon(
-                            Icons.AutoMirrored.Rounded.ArrowForward,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
-                Spacer(Modifier.height(16.dp))
             }
 
             // ── YOUR BLOCKLISTS section header ──
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    stringResource(R.string.your_blocklists),
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    letterSpacing = 1.sp
-                )
-                IconButton(
-                    onClick = onCreateSchedule,
-                    modifier = Modifier.size(28.dp)
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        Icons.Rounded.Add,
-                        contentDescription = stringResource(R.string.create_schedule),
-                        modifier = Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    Text(
+                        stringResource(R.string.your_blocklists),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        letterSpacing = 1.sp
                     )
+                    IconButton(
+                        onClick = onCreateSchedule,
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            Icons.Rounded.Add,
+                            contentDescription = stringResource(R.string.create_schedule),
+                            modifier = Modifier.size(20.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
 
             // ── Schedule list (inline) ──
             if (schedules.isEmpty()) {
-                Card(
-                    onClick = onCreateSchedule,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(2.dp, RoundedCornerShape(16.dp)),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-                ) {
-                    Column(
+                item {
+                    Card(
+                        onClick = onCreateSchedule,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(32.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                            .shadow(2.dp, RoundedCornerShape(16.dp)),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
-                        Icon(
-                            Icons.Rounded.EventBusy,
-                            contentDescription = null,
-                            modifier = Modifier.size(48.dp),
-                            tint = MaterialTheme.colorScheme.outline
-                        )
-                        Text(
-                            stringResource(R.string.no_schedules),
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            stringResource(R.string.no_schedules_desc),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline
-                        )
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(32.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                Icons.Rounded.EventBusy,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = MaterialTheme.colorScheme.outline
+                            )
+                            Text(
+                                stringResource(R.string.no_schedules),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                stringResource(R.string.no_schedules_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
                     }
                 }
             } else {
-                schedules.forEach { schedule ->
-                    // refreshTick is read here to trigger recomposition
-                    @Suppress("UNUSED_EXPRESSION") refreshTick
-                    val isActive = Schedules.isScheduleActive(schedule.id, context)
+                items(schedules, key = { it.id }) { schedule ->
+                    val isActive = activeScheduleIds.contains(schedule.id)
                     ScheduleItem(
                         schedule = schedule,
                         isActive = isActive,
@@ -286,60 +288,58 @@ fun HomeScreen(
                             onEditSchedule(schedule)
                         }
                     )
-                    Spacer(Modifier.height(10.dp))
                 }
             }
 
-            Spacer(Modifier.height(16.dp))
-
             // ── Footer ──
-            Spacer(Modifier.weight(1f))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Spacer(Modifier.size(24.dp)) // To keep text centered (same width as icon)
-                Text(
-                    stringResource(R.string.footer_text),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline
-                )
-                Box {
-                    Icon(
-                        Icons.Rounded.Settings,
-                        contentDescription = "Settings",
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clickable { isMenuExpanded = true },
-                        tint = MaterialTheme.colorScheme.outline
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Spacer(Modifier.size(24.dp)) // To keep text centered (same width as icon)
+                    Text(
+                        stringResource(R.string.footer_text),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline
                     )
-                    DropdownMenu(
-                        expanded = isMenuExpanded,
-                        onDismissRequest = { isMenuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.export_rules)) },
-                            onClick = {
-                                isMenuExpanded = false
-                                exportLauncher.launch("reddblock_rules.json")
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Rounded.Upload, contentDescription = null)
-                            }
+                    Box {
+                        Icon(
+                            Icons.Rounded.Settings,
+                            contentDescription = "Settings",
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clickable { isMenuExpanded = true },
+                            tint = MaterialTheme.colorScheme.outline
                         )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.import_rules)) },
-                            onClick = {
-                                isMenuExpanded = false
-                                importLauncher.launch(arrayOf("application/json"))
-                            },
-                            leadingIcon = {
-                                Icon(Icons.Rounded.Download, contentDescription = null)
-                            }
-                        )
+                        DropdownMenu(
+                            expanded = isMenuExpanded,
+                            onDismissRequest = { isMenuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.export_rules)) },
+                                onClick = {
+                                    isMenuExpanded = false
+                                    exportLauncher.launch("reddblock_rules.json")
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Rounded.Upload, contentDescription = null)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.import_rules)) },
+                                onClick = {
+                                    isMenuExpanded = false
+                                    importLauncher.launch(arrayOf("application/json"))
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Rounded.Download, contentDescription = null)
+                                }
+                            )
+                        }
                     }
                 }
             }

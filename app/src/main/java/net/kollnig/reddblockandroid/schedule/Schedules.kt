@@ -380,6 +380,25 @@ object Schedules {
         }
     }
 
+    fun getActiveScheduleIds(
+        schedules: List<Schedule> = getAll(),
+        context: Context? = null
+    ): Set<String> {
+        val activeSessionIds = getActiveSessions().mapTo(mutableSetOf()) { it.scheduleId }
+
+        return schedules.asSequence()
+            .filter { it.isEnabled }
+            .filter { schedule ->
+                when (schedule.timing.type) {
+                    ScheduleTiming.ScheduleType.MANUAL -> activeSessionIds.contains(schedule.id)
+                    ScheduleTiming.ScheduleType.DAILY,
+                    ScheduleTiming.ScheduleType.WEEKLY -> ScheduleManager.isScheduleActiveNow(schedule, context)
+                }
+            }
+            .map { it.id }
+            .toSet()
+    }
+
     /** Well-known social media app package names. */
     val SOCIAL_MEDIA_PACKAGES = listOf(
         "com.instagram.android",
