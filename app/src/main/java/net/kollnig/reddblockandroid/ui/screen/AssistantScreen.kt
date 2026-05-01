@@ -31,6 +31,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import net.kollnig.reddblockandroid.assistant.AssistantMessage
 import net.kollnig.reddblockandroid.assistant.AssistantResult
@@ -45,6 +47,9 @@ import net.kollnig.reddblockandroid.data.ScheduleTiming
 @Composable
 fun AssistantScreen(
     messages: SnapshotStateList<AssistantMessage>,
+    isSending: Boolean,
+    onSendingChange: (Boolean) -> Unit,
+    assistantScope: CoroutineScope,
     onReviewProposal: (ScheduleProposal) -> Unit,
     onReviewAmendment: (ScheduleAmendmentProposal) -> Unit
 ) {
@@ -62,7 +67,6 @@ fun AssistantScreen(
     var motionSharing by remember { mutableStateOf(viewModel.motionSharingEnabled) }
     var wifiSharing by remember { mutableStateOf(viewModel.wifiSharingEnabled) }
     var isSaving by remember { mutableStateOf(false) }
-    var isSending by remember { mutableStateOf(false) }
     var messageDraft by remember { mutableStateOf("") }
     val isFreshChat = messages.size == 1 && messages.firstOrNull()?.role == AssistantMessage.Role.ASSISTANT
     val examplePrompts = remember {
@@ -108,8 +112,8 @@ fun AssistantScreen(
         if (text.isBlank() || isSending) return
         messageDraft = ""
         messages.add(AssistantMessage(AssistantMessage.Role.USER, text))
-        scope.launch {
-            isSending = true
+        assistantScope.launch {
+            onSendingChange(true)
             try {
                 val result = viewModel.sendMessage(text, messages.toList())
                 when (result) {
@@ -132,6 +136,8 @@ fun AssistantScreen(
                             )
                         )
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 messages.add(
                     AssistantMessage(
@@ -140,7 +146,7 @@ fun AssistantScreen(
                     )
                 )
             } finally {
-                isSending = false
+                onSendingChange(false)
             }
         }
     }
@@ -453,7 +459,10 @@ private fun AssistantMessageCard(
                         fontWeight = FontWeight.Bold
                     )
                 }
-                Text(message.text, style = MaterialTheme.typography.bodyMedium)
+                Text(
+                    if (isUser) message.text else message.text.toPlainAssistantText(),
+                    style = MaterialTheme.typography.bodyMedium
+                )
                 message.proposal?.let { proposal ->
                     HorizontalDivider()
                     Text(
@@ -587,4 +596,20 @@ private fun Int.pauseLabel(): String = when (this) {
     480 -> "8 hours"
     1440 -> "24 hours"
     else -> "$this minutes"
+}
+
+private fun String.toPlainAssistantText(): String {
+    return replace("```", "")
+        .lineSequence()
+        .map { line ->
+            line
+                .replace(Regex("""^\s{0,3}#{1,6}\s*"""), "")
+                .replace(Regex("""\*\*(.*?)\*\*"""), "$1")
+                .replace(Regex("""__(.*?)__"""), "$1")
+                .replace("`", "")
+                .replace(Regex("""^\s*[-*]\s+"""), "- ")
+                .trimEnd()
+        }
+        .joinToString("\n")
+        .trim()
 }

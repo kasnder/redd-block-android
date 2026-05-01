@@ -55,6 +55,8 @@ fun AppNavigation() {
     var pendingFrictionAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var frictionWordCount by remember { mutableIntStateOf(15) }
     var draftSchedule by remember { mutableStateOf<Schedule?>(null) }
+    var assistantIsSending by remember { mutableStateOf(false) }
+    val assistantScope = rememberCoroutineScope()
     val assistantMessages = remember {
         mutableStateListOf<AssistantMessage>(assistantWelcomeMessage())
     }
@@ -115,6 +117,9 @@ fun AppNavigation() {
             composable("assistant") {
                 AssistantScreen(
                     messages = assistantMessages,
+                    isSending = assistantIsSending,
+                    onSendingChange = { assistantIsSending = it },
+                    assistantScope = assistantScope,
                     onReviewProposal = { proposal ->
                         draftSchedule = proposal.toDraftSchedule()
                         navController.navigate("create_schedule")
