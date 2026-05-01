@@ -57,7 +57,9 @@ fun CreateScheduleScreen(
 ) {
     val context = LocalContext.current
     val existingSchedule = scheduleId?.let { Schedules.get(it) }
-    val initialSchedule = existingSchedule ?: draftSchedule
+    val initialSchedule = draftSchedule?.takeIf { draft ->
+        scheduleId == null || draft.id == scheduleId
+    } ?: existingSchedule
     val savedWifiNetworksStore = remember { SavedWifiNetworksStore(context) }
     var savedWifiNetworks by remember { mutableStateOf(savedWifiNetworksStore.getNetworks()) }
 

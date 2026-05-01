@@ -1,7 +1,8 @@
 package net.kollnig.reddblockandroid.assistant
 
-import net.kollnig.reddblockandroid.data.ScheduleTiming
 import net.kollnig.reddblockandroid.data.MotionCondition
+import net.kollnig.reddblockandroid.data.Schedule
+import net.kollnig.reddblockandroid.data.ScheduleTiming
 import net.kollnig.reddblockandroid.data.WifiCondition
 import net.kollnig.reddblockandroid.schedule.Schedules
 import org.json.JSONObject
@@ -19,22 +20,34 @@ class ToolValidator(
         proposal
     }
 
-    private fun parseProposal(json: JSONObject): ScheduleProposal {
-        val timingJson = json.getJSONObject("timing")
-        val type = ScheduleTiming.ScheduleType.valueOf(timingJson.getString("type"))
-        val days = timingJson.getJSONArray("daysOfWeek").let { arr ->
-            (0 until arr.length()).map { DayOfWeek.valueOf(arr.getString(it)) }.toSet()
-        }
-        val timing = ScheduleTimingDraft(
-            type = type,
-            timeHour = timingJson.optNullableInt("timeHour"),
-            timeMinute = timingJson.optNullableInt("timeMinute"),
-            endTimeHour = timingJson.optNullableInt("endTimeHour"),
-            endTimeMinute = timingJson.optNullableInt("endTimeMinute"),
-            daysOfWeek = days,
-            motionCondition = parseMotionCondition(timingJson.optJSONObject("motionCondition")),
-            wifiCondition = parseWifiCondition(timingJson.optJSONObject("wifiCondition"))
+    fun parseAndValidateAmendment(arguments: String): Result<ScheduleAmendmentProposal> = runCatching {
+        val json = JSONObject(arguments)
+        val scheduleId = json.getString("scheduleId")
+        val original = Schedules.get(scheduleId)
+            ?: error("The schedule to amend no longer exists.")
+        val timing = parseTiming(json.getJSONObject("timing"))
+        val updated = original.copy(
+            name = json.getString("name").trim(),
+            isEnabled = original.isEnabled,
+            timing = timing.toScheduleTiming(),
+            blockedApps = json.getJSONArray("blockedApps").toStringList().distinct(),
+            blockedWebsites = json.getJSONArray("blockedWebsites").toStringList().map(::normalizeDomain).distinct(),
+            frictionWordCount = json.getInt("frictionWordCount"),
+            autoReenableMinutes = json.getInt("autoReenableMinutes"),
+            disabledUntil = original.disabledUntil
         )
+        validateUpdatedSchedule(updated)
+        require(updated != original) { "Amendment does not change the selected schedule." }
+        ScheduleAmendmentProposal(
+            scheduleId = scheduleId,
+            originalName = original.name,
+            updatedSchedule = updated,
+            rationale = json.getString("rationale").trim()
+        )
+    }
+
+    private fun parseProposal(json: JSONObject): ScheduleProposal {
+        val timing = parseTiming(json.getJSONObject("timing"))
         return ScheduleProposal(
             name = json.getString("name").trim(),
             blockedApps = json.getJSONArray("blockedApps").toStringList().distinct(),
@@ -48,26 +61,55 @@ class ToolValidator(
     }
 
     private fun validate(proposal: ScheduleProposal) {
-        require(proposal.name.isNotBlank()) { "Schedule name is required." }
-        require(proposal.blockedApps.isNotEmpty() || proposal.blockedWebsites.isNotEmpty()) {
-            "Proposal must block at least one app or website."
-        }
-        require(proposal.blockedApps.all { installedPackages.contains(it) }) {
-            "Proposal contains apps that are not installed."
-        }
-        require(proposal.blockedWebsites.all { DOMAIN_PATTERN.matches(it) }) {
-            "Proposal contains malformed domains."
-        }
-        require(proposal.frictionWordCount in 1..50) {
-            "Friction word count is outside the allowed range."
-        }
-        require(proposal.autoReenableMinutes in ALLOWED_REENABLE_MINUTES) {
-            "Temporary unlock duration is not supported."
-        }
-        validateTiming(proposal.timing)
+        validateScheduleParts(
+            name = proposal.name,
+            blockedApps = proposal.blockedApps,
+            blockedWebsites = proposal.blockedWebsites,
+            timing = proposal.timing,
+            frictionWordCount = proposal.frictionWordCount,
+            autoReenableMinutes = proposal.autoReenableMinutes
+        )
         require(!duplicatesExistingSchedule(proposal)) {
             "Proposal duplicates an existing schedule."
         }
+    }
+
+    private fun validateUpdatedSchedule(schedule: Schedule) {
+        validateScheduleParts(
+            name = schedule.name,
+            blockedApps = schedule.blockedApps,
+            blockedWebsites = schedule.blockedWebsites,
+            timing = schedule.timing.toDraft(),
+            frictionWordCount = schedule.frictionWordCount,
+            autoReenableMinutes = schedule.autoReenableMinutes
+        )
+    }
+
+    private fun validateScheduleParts(
+        name: String,
+        blockedApps: List<String>,
+        blockedWebsites: List<String>,
+        timing: ScheduleTimingDraft,
+        frictionWordCount: Int,
+        autoReenableMinutes: Int
+    ) {
+        require(name.isNotBlank()) { "Schedule name is required." }
+        require(blockedApps.isNotEmpty() || blockedWebsites.isNotEmpty()) {
+            "Proposal must block at least one app or website."
+        }
+        require(blockedApps.all { installedPackages.contains(it) }) {
+            "Proposal contains apps that are not installed."
+        }
+        require(blockedWebsites.all { DOMAIN_PATTERN.matches(it) }) {
+            "Proposal contains malformed domains."
+        }
+        require(frictionWordCount in 1..50) {
+            "Friction word count is outside the allowed range."
+        }
+        require(autoReenableMinutes in ALLOWED_REENABLE_MINUTES) {
+            "Temporary unlock duration is not supported."
+        }
+        validateTiming(timing)
     }
 
     private fun validateTiming(timing: ScheduleTimingDraft) {
@@ -120,6 +162,49 @@ class ToolValidator(
             label = json.getString("label").trim(),
             ssid = json.getString("ssid").trim(),
             bssid = json.optString("bssid").takeIf { it.isNotBlank() }
+        )
+    }
+
+    private fun parseTiming(timingJson: JSONObject): ScheduleTimingDraft {
+        val type = ScheduleTiming.ScheduleType.valueOf(timingJson.getString("type"))
+        val days = timingJson.getJSONArray("daysOfWeek").let { arr ->
+            (0 until arr.length()).map { DayOfWeek.valueOf(arr.getString(it)) }.toSet()
+        }
+        return ScheduleTimingDraft(
+            type = type,
+            timeHour = timingJson.optNullableInt("timeHour"),
+            timeMinute = timingJson.optNullableInt("timeMinute"),
+            endTimeHour = timingJson.optNullableInt("endTimeHour"),
+            endTimeMinute = timingJson.optNullableInt("endTimeMinute"),
+            daysOfWeek = days,
+            motionCondition = parseMotionCondition(timingJson.optJSONObject("motionCondition")),
+            wifiCondition = parseWifiCondition(timingJson.optJSONObject("wifiCondition"))
+        )
+    }
+
+    private fun ScheduleTimingDraft.toScheduleTiming(): ScheduleTiming {
+        return ScheduleTiming(
+            type = type,
+            timeHour = timeHour,
+            timeMinute = timeMinute,
+            endTimeHour = endTimeHour,
+            endTimeMinute = endTimeMinute,
+            daysOfWeek = daysOfWeek,
+            motionCondition = motionCondition,
+            wifiCondition = wifiCondition
+        )
+    }
+
+    private fun ScheduleTiming.toDraft(): ScheduleTimingDraft {
+        return ScheduleTimingDraft(
+            type = type,
+            timeHour = timeHour,
+            timeMinute = timeMinute,
+            endTimeHour = endTimeHour,
+            endTimeMinute = endTimeMinute,
+            daysOfWeek = daysOfWeek,
+            motionCondition = motionCondition,
+            wifiCondition = wifiCondition
         )
     }
 

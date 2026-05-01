@@ -34,13 +34,17 @@ import net.kollnig.reddblockandroid.assistant.AssistantMessage
 import net.kollnig.reddblockandroid.assistant.AssistantResult
 import net.kollnig.reddblockandroid.assistant.AssistantViewModel
 import net.kollnig.reddblockandroid.assistant.OpenAIModels
+import net.kollnig.reddblockandroid.assistant.ScheduleAmendmentProposal
 import net.kollnig.reddblockandroid.assistant.ScheduleProposal
+import net.kollnig.reddblockandroid.data.Schedule
+import net.kollnig.reddblockandroid.data.ScheduleTiming
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun AssistantScreen(
     messages: SnapshotStateList<AssistantMessage>,
-    onReviewProposal: (ScheduleProposal) -> Unit
+    onReviewProposal: (ScheduleProposal) -> Unit,
+    onReviewAmendment: (ScheduleAmendmentProposal) -> Unit
 ) {
     val context = LocalContext.current
     val viewModel = remember { AssistantViewModel(context) }
@@ -117,6 +121,14 @@ fun AssistantScreen(
                                 proposal = result.proposal
                             )
                         )
+                    is AssistantResult.Amendment ->
+                        messages.add(
+                            AssistantMessage(
+                                role = AssistantMessage.Role.ASSISTANT,
+                                text = result.text,
+                                amendment = result.amendment
+                            )
+                        )
                 }
             } catch (e: Exception) {
                 messages.add(
@@ -174,7 +186,8 @@ fun AssistantScreen(
                 items(messages) { message ->
                     AssistantMessageCard(
                         message = message,
-                        onReviewProposal = onReviewProposal
+                        onReviewProposal = onReviewProposal,
+                        onReviewAmendment = onReviewAmendment
                     )
                 }
                 if (isSending) {
@@ -393,7 +406,8 @@ fun AssistantScreen(
 @Composable
 private fun AssistantMessageCard(
     message: AssistantMessage,
-    onReviewProposal: (ScheduleProposal) -> Unit
+    onReviewProposal: (ScheduleProposal) -> Unit,
+    onReviewAmendment: (ScheduleAmendmentProposal) -> Unit
 ) {
     val isUser = message.role == AssistantMessage.Role.USER
     Row(
@@ -442,6 +456,24 @@ private fun AssistantMessageCard(
                         Text("Review and create")
                     }
                 }
+                message.amendment?.let { amendment ->
+                    HorizontalDivider()
+                    Text(
+                        "Amend ${amendment.originalName}",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        scheduleSummary(amendment.updatedSchedule),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 5,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Button(onClick = { onReviewAmendment(amendment) }) {
+                        Text("Review changes")
+                    }
+                }
             }
         }
     }
@@ -469,6 +501,23 @@ private fun proposalSummary(proposal: ScheduleProposal): String {
     }
     val activeWhen = if (conditions.isEmpty()) "" else "\nActive ${conditions.joinToString(" and ")}"
     return "$timing$activeWhen\nBlocks: $targets\nFriction: ${proposal.frictionWordCount} words\nPause: ${proposal.autoReenableMinutes.pauseLabel()}"
+}
+
+private fun scheduleSummary(schedule: Schedule): String {
+    val timing = when (schedule.timing.type) {
+        ScheduleTiming.ScheduleType.MANUAL -> "Manual"
+        ScheduleTiming.ScheduleType.DAILY ->
+            "Daily ${schedule.timing.timeHour.twoDigits()}:${schedule.timing.timeMinute.twoDigits()}-${schedule.timing.endTimeHour.twoDigits()}:${schedule.timing.endTimeMinute.twoDigits()}"
+        ScheduleTiming.ScheduleType.WEEKLY ->
+            "Weekly ${schedule.timing.daysOfWeek.joinToString { it.name.take(3) }} ${schedule.timing.timeHour.twoDigits()}:${schedule.timing.timeMinute.twoDigits()}-${schedule.timing.endTimeHour.twoDigits()}:${schedule.timing.endTimeMinute.twoDigits()}"
+    }
+    val conditions = listOfNotNull(
+        schedule.timing.motionCondition?.let { "when ${it.activity.label.lowercase()}" },
+        schedule.timing.wifiCondition?.let { "on ${it.label} Wi-Fi" }
+    )
+    val activeWhen = if (conditions.isEmpty()) "" else "\nActive ${conditions.joinToString(" and ")}"
+    val targets = (schedule.blockedApps + schedule.blockedWebsites).joinToString(", ")
+    return "$timing$activeWhen\nBlocks: $targets\nFriction: ${schedule.frictionWordCount} words\nPause: ${schedule.autoReenableMinutes.pauseLabel()}"
 }
 
 private fun Int?.twoDigits(): String = String.format("%02d", this ?: 0)

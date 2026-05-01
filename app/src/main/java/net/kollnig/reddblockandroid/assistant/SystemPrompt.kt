@@ -8,8 +8,9 @@ Your job is to help users translate a phone-use problem into small, additive sch
 Treat problematic use as cue-driven and friction-sensitive, not as weak willpower.
 
 Rules:
-- Do not edit, delete, shorten, disable, replace, or weaken existing schedules.
-- You may propose only new schedules.
+- Do not delete, disable, or silently change existing schedules.
+- You may propose new schedules or propose amendments to existing schedules. The user must always review before saving.
+- Prefer proposing additive amendments to existing schedules when the user's request is clearly about improving a named/current schedule.
 - Prefer narrow experiments over blanket bans.
 - Prefer adding friction at vulnerable moments: mornings, evenings, bed, commuting, boredom, tiredness.
 - If motion or Wi-Fi context is available and materially improves the experiment, use timing plus a context condition instead of timing alone.
@@ -29,7 +30,9 @@ How ReDD Block schedules work:
 - autoReenableMinutes controls how long a temporary unlock lasts after the friction gate is passed. Choose from the allowed enum only. Use 5-15 minutes for quick intentional checks, 30-60 minutes for work/research needs, 120+ only when the user needs long sessions, and 0 only when the schedule should stay disabled until manually re-enabled.
 - A good proposal should combine cue, timing/context, blocked targets, friction strength, and unlock duration into a small experiment the user can review.
 
-When a schedule is ready, call propose_schedule. Otherwise reply with a concise question or explanation.
+When a new schedule is ready, call propose_schedule.
+When a change to an existing schedule is ready, call propose_schedule_amendment using the exact scheduleId from existing_schedules_read_only.
+Otherwise reply with a concise question or explanation.
 """
 
     fun proposeScheduleToolJson(): String = """
@@ -112,6 +115,89 @@ When a schedule is ready, call propose_schedule. Otherwise reply with a concise 
       }
     },
     "required": ["name", "blockedApps", "blockedWebsites", "timing", "frictionWordCount", "autoReenableMinutes", "rationale", "experimentDays"]
+  }
+}
+"""
+
+    fun proposeScheduleAmendmentToolJson(): String = """
+{
+  "type": "function",
+  "name": "propose_schedule_amendment",
+  "description": "Create a reviewed draft amendment to one existing ReDD Block schedule. Never deletes, disables, or directly saves the schedule.",
+  "strict": true,
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "scheduleId": {
+        "type": "string",
+        "description": "Exact id of the schedule being amended from existing_schedules_read_only."
+      },
+      "name": {
+        "type": "string",
+        "description": "Full replacement schedule name."
+      },
+      "blockedApps": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Full replacement list of Android package names from installed_apps only."
+      },
+      "blockedWebsites": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Full replacement list of bare domains only, for example reddit.com."
+      },
+      "timing": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": { "type": "string", "enum": ["DAILY", "WEEKLY", "MANUAL"] },
+          "timeHour": { "type": ["integer", "null"], "minimum": 0, "maximum": 23 },
+          "timeMinute": { "type": ["integer", "null"], "minimum": 0, "maximum": 59 },
+          "endTimeHour": { "type": ["integer", "null"], "minimum": 0, "maximum": 23 },
+          "endTimeMinute": { "type": ["integer", "null"], "minimum": 0, "maximum": 59 },
+          "daysOfWeek": {
+            "type": "array",
+            "items": { "type": "string", "enum": ["MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY", "SUNDAY"] }
+          },
+          "motionCondition": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "properties": {
+              "activity": { "type": "string", "enum": ["STILL", "WALKING", "RUNNING", "ON_FOOT", "ON_BICYCLE", "IN_VEHICLE"] }
+            },
+            "required": ["activity"]
+          },
+          "wifiCondition": {
+            "type": ["object", "null"],
+            "additionalProperties": false,
+            "properties": {
+              "label": { "type": "string" },
+              "ssid": { "type": "string" },
+              "bssid": { "type": ["string", "null"] }
+            },
+            "required": ["label", "ssid", "bssid"]
+          }
+        },
+        "required": ["type", "timeHour", "timeMinute", "endTimeHour", "endTimeMinute", "daysOfWeek", "motionCondition", "wifiCondition"]
+      },
+      "frictionWordCount": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 50,
+        "description": "Full replacement friction gate word count."
+      },
+      "autoReenableMinutes": {
+        "type": "integer",
+        "enum": [0, 5, 10, 15, 30, 60, 120, 240, 480, 1440],
+        "description": "Full replacement temporary unlock duration. 0 means manually re-enabled."
+      },
+      "rationale": {
+        "type": "string",
+        "description": "Plain-language explanation of what changed and why."
+      }
+    },
+    "required": ["scheduleId", "name", "blockedApps", "blockedWebsites", "timing", "frictionWordCount", "autoReenableMinutes", "rationale"]
   }
 }
 """

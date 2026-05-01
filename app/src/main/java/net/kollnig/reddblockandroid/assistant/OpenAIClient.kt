@@ -33,7 +33,10 @@ class OpenAIClient(
                             .put("text", userContextJson)
                     ))
             ))
-            .put("tools", JSONArray().put(JSONObject(SystemPrompt.proposeScheduleToolJson())))
+            .put("tools", JSONArray()
+                .put(JSONObject(SystemPrompt.proposeScheduleToolJson()))
+                .put(JSONObject(SystemPrompt.proposeScheduleAmendmentToolJson()))
+            )
             .put("tool_choice", "auto")
 
         val request = Request.Builder()
@@ -82,10 +85,17 @@ class OpenAIClient(
             val item = output.optJSONObject(i) ?: continue
             when (item.optString("type")) {
                 "function_call" -> {
-                    if (item.optString("name") == "propose_schedule") {
-                        val proposal = validator.parseAndValidate(item.getString("arguments")).getOrThrow()
-                        val text = proposal.rationale.ifBlank { "I drafted a new schedule for review." }
-                        return AssistantResult.Proposal(text, proposal)
+                    when (item.optString("name")) {
+                        "propose_schedule" -> {
+                            val proposal = validator.parseAndValidate(item.getString("arguments")).getOrThrow()
+                            val text = proposal.rationale.ifBlank { "I drafted a new schedule for review." }
+                            return AssistantResult.Proposal(text, proposal)
+                        }
+                        "propose_schedule_amendment" -> {
+                            val amendment = validator.parseAndValidateAmendment(item.getString("arguments")).getOrThrow()
+                            val text = amendment.rationale.ifBlank { "I drafted changes to an existing schedule for review." }
+                            return AssistantResult.Amendment(text, amendment)
+                        }
                     }
                 }
                 "message" -> {
@@ -123,4 +133,3 @@ class OpenAIClient(
         private val JSON_MEDIA_TYPE = "application/json; charset=utf-8".toMediaType()
     }
 }
-

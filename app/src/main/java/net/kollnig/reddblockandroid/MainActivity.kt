@@ -22,6 +22,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import net.kollnig.reddblockandroid.assistant.AssistantMessage
+import net.kollnig.reddblockandroid.assistant.ScheduleAmendmentProposal
 import net.kollnig.reddblockandroid.assistant.ScheduleProposal
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.ui.screen.CreateScheduleScreen
@@ -100,6 +101,7 @@ fun AppNavigation() {
                         navController.navigate("create_schedule")
                     },
                     onEditSchedule = { schedule ->
+                        draftSchedule = null
                         navController.navigate("edit_schedule/${schedule.id}")
                     },
                     onFrictionGateRequired = { schedule: Schedule, onPassed: () -> Unit ->
@@ -116,6 +118,10 @@ fun AppNavigation() {
                     onReviewProposal = { proposal ->
                         draftSchedule = proposal.toDraftSchedule()
                         navController.navigate("create_schedule")
+                    },
+                    onReviewAmendment = { amendment ->
+                        draftSchedule = amendment.updatedSchedule
+                        navController.navigate("edit_schedule/${amendment.scheduleId}")
                     }
                 )
             }
@@ -143,8 +149,12 @@ fun AppNavigation() {
             ) { navEntry ->
                 CreateScheduleScreen(
                     scheduleId = navEntry.arguments?.getString("scheduleId"),
+                    draftSchedule = draftSchedule,
                     onBackPressed = { navController.popBackStack() },
-                    onSaveComplete = { navController.popBackStack() },
+                    onSaveComplete = {
+                        draftSchedule = null
+                        navController.popBackStack()
+                    },
                     onFrictionGateRequired = { wordCount, onPassed ->
                         frictionWordCount = wordCount
                         pendingFrictionAction = onPassed

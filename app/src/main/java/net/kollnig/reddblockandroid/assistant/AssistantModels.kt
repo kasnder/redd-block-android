@@ -1,7 +1,8 @@
 package net.kollnig.reddblockandroid.assistant
 
-import net.kollnig.reddblockandroid.data.ScheduleTiming
 import net.kollnig.reddblockandroid.data.MotionCondition
+import net.kollnig.reddblockandroid.data.Schedule
+import net.kollnig.reddblockandroid.data.ScheduleTiming
 import net.kollnig.reddblockandroid.data.WifiCondition
 import org.json.JSONObject
 import java.time.DayOfWeek
@@ -28,10 +29,18 @@ data class ScheduleProposal(
     val experimentDays: Int?
 )
 
+data class ScheduleAmendmentProposal(
+    val scheduleId: String,
+    val originalName: String,
+    val updatedSchedule: Schedule,
+    val rationale: String
+)
+
 data class AssistantMessage(
     val role: Role,
     val text: String,
-    val proposal: ScheduleProposal? = null
+    val proposal: ScheduleProposal? = null,
+    val amendment: ScheduleAmendmentProposal? = null
 ) {
     enum class Role {
         USER,
@@ -66,4 +75,5 @@ data class AssistantContext(
 sealed class AssistantResult {
     data class Message(val text: String) : AssistantResult()
     data class Proposal(val text: String, val proposal: ScheduleProposal) : AssistantResult()
+    data class Amendment(val text: String, val amendment: ScheduleAmendmentProposal) : AssistantResult()
 }
