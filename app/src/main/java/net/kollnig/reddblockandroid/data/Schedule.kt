@@ -1,8 +1,10 @@
 package net.kollnig.reddblockandroid.data
 
+import androidx.compose.runtime.Immutable
 import java.time.DayOfWeek
 import java.time.LocalTime
 
+@Immutable
 data class Schedule(
     val id: String,
     val name: String,
@@ -15,6 +17,7 @@ data class Schedule(
     val disabledUntil: Long? = null
 )
 
+@Immutable
 data class ScheduleTiming(
     val type: ScheduleType,
     val timeHour: Int? = null,
@@ -43,6 +46,7 @@ data class ScheduleTiming(
         } else null
 }
 
+@Immutable
 data class MotionCondition(
     val activity: Activity
 ) {
@@ -62,6 +66,7 @@ data class MotionCondition(
     }
 }
 
+@Immutable
 data class WifiCondition(
     val label: String,
     val ssid: String

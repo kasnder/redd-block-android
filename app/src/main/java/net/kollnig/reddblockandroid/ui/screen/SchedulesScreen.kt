@@ -1,6 +1,5 @@
 package net.kollnig.reddblockandroid.ui.screen
 
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -186,22 +185,12 @@ private fun ScheduleItem(
         onToggle: () -> Unit,
         onEdit: () -> Unit
 ) {
-    val containerColor by
-            animateColorAsState(
-                    targetValue =
-                            if (isActive) MaterialTheme.colorScheme.surface
-                            else MaterialTheme.colorScheme.surface,
-                    label = "containerColor"
-            )
-
-    val borderColor = if (isActive) IndigoPrimary.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outlineVariant
-
     Card(
             onClick = onClick,
         modifier = Modifier
                 .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = containerColor),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             border = if (isActive) BorderStroke(1.5.dp, IndigoPrimary.copy(alpha = 0.4f)) else null
     ) {
         Row(

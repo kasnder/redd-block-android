@@ -1,5 +1,6 @@
 package net.kollnig.reddblockandroid.assistant
 
+import androidx.compose.runtime.Immutable
 import net.kollnig.reddblockandroid.data.MotionCondition
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
@@ -7,6 +8,7 @@ import net.kollnig.reddblockandroid.data.WifiCondition
 import org.json.JSONObject
 import java.time.DayOfWeek
 
+@Immutable
 data class ScheduleTimingDraft(
     val type: ScheduleTiming.ScheduleType,
     val timeHour: Int? = null,
@@ -18,6 +20,7 @@ data class ScheduleTimingDraft(
     val wifiCondition: WifiCondition? = null
 )
 
+@Immutable
 data class ScheduleProposal(
     val name: String,
     val blockedApps: List<String>,
@@ -29,6 +32,7 @@ data class ScheduleProposal(
     val experimentDays: Int?
 )
 
+@Immutable
 data class ScheduleAmendmentProposal(
     val scheduleId: String,
     val originalName: String,
@@ -36,6 +40,7 @@ data class ScheduleAmendmentProposal(
     val rationale: String
 )
 
+@Immutable
 data class AssistantMessage(
     val role: Role,
     val text: String,
@@ -48,11 +53,13 @@ data class AssistantMessage(
     }
 }
 
+@Immutable
 data class InstalledAppSummary(
     val packageName: String,
     val label: String
 )
 
+@Immutable
 data class UsageSummary(
     val packageName: String,
     val label: String,
