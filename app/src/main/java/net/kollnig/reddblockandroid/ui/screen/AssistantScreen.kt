@@ -498,7 +498,7 @@ private fun AssistantMessageCard(
 fun assistantWelcomeMessage(): AssistantMessage {
     return AssistantMessage(
         AssistantMessage.Role.ASSISTANT,
-        "Tell me what is going wrong with your phone use. I can draft a new schedule, but I cannot weaken existing blocks."
+        "Aloha, I’m Ulrik. I help turn app-use problems into small ReDD Block experiments, grounded in digital self-control research. I can draft new schedules or suggest reviewed changes to existing ones, but I won’t weaken blocks without your review."
     )
 }
 
