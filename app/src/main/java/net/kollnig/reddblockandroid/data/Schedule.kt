@@ -22,7 +22,9 @@ data class ScheduleTiming(
     val endTimeHour: Int? = null,
     val endTimeMinute: Int? = null,
     val daysOfWeek: Set<DayOfWeek> = emptySet(),
-    val isRecurring: Boolean = true
+    val isRecurring: Boolean = true,
+    val motionCondition: MotionCondition? = null,
+    val wifiCondition: WifiCondition? = null
 ) {
     enum class ScheduleType {
         DAILY,
@@ -40,3 +42,28 @@ data class ScheduleTiming(
             LocalTime.of(endTimeHour, endTimeMinute)
         } else null
 }
+
+data class MotionCondition(
+    val activity: Activity
+) {
+    enum class Activity(val assistantName: String, val label: String) {
+        STILL("still", "Still"),
+        WALKING("walking", "Walking"),
+        RUNNING("running", "Running"),
+        ON_FOOT("on_foot", "On foot"),
+        ON_BICYCLE("on_bicycle", "Cycling"),
+        IN_VEHICLE("in_vehicle", "In vehicle");
+
+        companion object {
+            fun fromAssistantName(value: String): Activity? {
+                return entries.firstOrNull { it.assistantName == value }
+            }
+        }
+    }
+}
+
+data class WifiCondition(
+    val label: String,
+    val ssid: String,
+    val bssid: String? = null
+)

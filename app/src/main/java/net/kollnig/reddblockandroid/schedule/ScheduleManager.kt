@@ -6,8 +6,12 @@ import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import net.kollnig.reddblockandroid.assistant.ActivityRecognitionManager
+import net.kollnig.reddblockandroid.assistant.WifiContextProvider
+import net.kollnig.reddblockandroid.data.MotionCondition
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
+import net.kollnig.reddblockandroid.data.WifiCondition
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.concurrent.TimeUnit
@@ -52,11 +56,11 @@ object ScheduleManager {
 
     private fun getReEnableWorkName(scheduleId: String) = "schedule_reenable_$scheduleId"
 
-    fun isScheduleActiveNow(schedule: Schedule): Boolean {
-        return getScheduleStartTime(schedule) != null
+    fun isScheduleActiveNow(schedule: Schedule, context: Context? = null): Boolean {
+        return getScheduleStartTime(schedule, context) != null
     }
 
-    fun getScheduleStartTime(schedule: Schedule): Long? {
+    fun getScheduleStartTime(schedule: Schedule, context: Context? = null): Long? {
         val now = LocalDateTime.now()
         val timing = schedule.timing
 
@@ -79,15 +83,40 @@ object ScheduleManager {
 
             if ((now.isEqual(startCandidate) || now.isAfter(startCandidate)) && now.isBefore(endCandidate)) {
                 if (timing.type == ScheduleTiming.ScheduleType.WEEKLY) {
-                    if (timing.daysOfWeek.contains(startCandidate.dayOfWeek)) {
+                    if (timing.daysOfWeek.contains(startCandidate.dayOfWeek) && conditionsAreMet(timing, context)) {
                         return startCandidate.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
                     }
                 } else {
-                    return startCandidate.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    if (conditionsAreMet(timing, context)) {
+                        return startCandidate.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
+                    }
                 }
             }
         }
 
         return null
+    }
+
+    private fun conditionsAreMet(timing: ScheduleTiming, context: Context?): Boolean {
+        return motionConditionIsMet(timing.motionCondition, context) &&
+                wifiConditionIsMet(timing.wifiCondition, context)
+    }
+
+    private fun motionConditionIsMet(condition: MotionCondition?, context: Context?): Boolean {
+        if (condition == null) return true
+        val appContext = context?.applicationContext ?: return false
+        val latest = ActivityRecognitionManager(appContext).latestActivityJson() ?: return false
+        val currentActivity = MotionCondition.Activity.fromAssistantName(latest.optString("activity"))
+            ?: return false
+        return currentActivity == condition.activity
+    }
+
+    private fun wifiConditionIsMet(condition: WifiCondition?, context: Context?): Boolean {
+        if (condition == null) return true
+        val appContext = context?.applicationContext ?: return false
+        val current = WifiContextProvider(appContext).currentWifi() ?: return false
+        val ssidMatches = current.ssid == condition.ssid
+        val bssidMatches = condition.bssid == null || current.bssid == condition.bssid
+        return ssidMatches && bssidMatches
     }
 }

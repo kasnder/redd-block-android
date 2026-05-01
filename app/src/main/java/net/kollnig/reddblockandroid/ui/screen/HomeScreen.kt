@@ -262,7 +262,7 @@ fun HomeScreen(
                 schedules.forEach { schedule ->
                     // refreshTick is read here to trigger recomposition
                     @Suppress("UNUSED_EXPRESSION") refreshTick
-                    val isActive = Schedules.isScheduleActive(schedule.id)
+                    val isActive = Schedules.isScheduleActive(schedule.id, context)
                     ScheduleItem(
                         schedule = schedule,
                         isActive = isActive,
@@ -482,6 +482,12 @@ private fun buildScheduleDescription(schedule: Schedule): String {
                 parts.add(dayNames)
             }
         }
+    }
+    schedule.timing.motionCondition?.let { condition ->
+        parts.add("when ${condition.activity.label.lowercase(Locale.getDefault())}")
+    }
+    schedule.timing.wifiCondition?.let { condition ->
+        parts.add("on ${condition.label} Wi-Fi")
     }
 
     val blockCount = schedule.blockedApps.size + schedule.blockedWebsites.size

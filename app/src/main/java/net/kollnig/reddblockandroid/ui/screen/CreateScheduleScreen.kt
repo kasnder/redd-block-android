@@ -26,15 +26,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.kollnig.reddblockandroid.R
+import net.kollnig.reddblockandroid.data.MotionCondition
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
+import net.kollnig.reddblockandroid.data.SavedWifiNetwork
+import net.kollnig.reddblockandroid.data.SavedWifiNetworksStore
+import net.kollnig.reddblockandroid.data.WifiCondition
 import net.kollnig.reddblockandroid.schedule.Schedules
 import net.kollnig.reddblockandroid.ui.theme.*
 import java.time.DayOfWeek
@@ -47,37 +50,56 @@ import java.util.UUID
 @Composable
 fun CreateScheduleScreen(
     scheduleId: String?,
+    draftSchedule: Schedule? = null,
     onBackPressed: () -> Unit,
     onSaveComplete: () -> Unit,
     onFrictionGateRequired: (wordCount: Int, onPassed: () -> Unit) -> Unit = { _, _ -> }
 ) {
     val context = LocalContext.current
     val existingSchedule = scheduleId?.let { Schedules.get(it) }
+    val initialSchedule = existingSchedule ?: draftSchedule
+    val savedWifiNetworksStore = remember { SavedWifiNetworksStore(context) }
+    var savedWifiNetworks by remember { mutableStateOf(savedWifiNetworksStore.getNetworks()) }
 
-    var scheduleName by remember { mutableStateOf(existingSchedule?.name ?: "") }
+    var scheduleName by remember { mutableStateOf(initialSchedule?.name ?: "") }
     var scheduleType by remember {
-        mutableStateOf(existingSchedule?.timing?.type ?: ScheduleTiming.ScheduleType.WEEKLY)
+        mutableStateOf(initialSchedule?.timing?.type ?: ScheduleTiming.ScheduleType.WEEKLY)
     }
     var selectedTime by remember {
-        mutableStateOf(existingSchedule?.timing?.time ?: LocalTime.of(9, 0))
+        mutableStateOf(initialSchedule?.timing?.time ?: LocalTime.of(9, 0))
     }
     var selectedEndTime by remember {
-        mutableStateOf(existingSchedule?.timing?.endTime ?: LocalTime.of(17, 0))
+        mutableStateOf(initialSchedule?.timing?.endTime ?: LocalTime.of(17, 0))
     }
     var selectedDays by remember {
-        mutableStateOf(existingSchedule?.timing?.daysOfWeek ?: emptySet())
+        mutableStateOf(initialSchedule?.timing?.daysOfWeek ?: emptySet())
     }
     var blockedApps by remember {
-        mutableStateOf(existingSchedule?.blockedApps ?: emptyList())
+        mutableStateOf(initialSchedule?.blockedApps ?: emptyList())
     }
     var blockedWebsites by remember {
-        mutableStateOf(existingSchedule?.blockedWebsites ?: emptyList())
+        mutableStateOf(initialSchedule?.blockedWebsites ?: emptyList())
     }
     var frictionWordCount by remember {
-        mutableIntStateOf(existingSchedule?.frictionWordCount ?: 15)
+        mutableIntStateOf(initialSchedule?.frictionWordCount ?: 15)
     }
     var autoReenableMinutes by remember {
-        mutableIntStateOf(existingSchedule?.autoReenableMinutes ?: 1440)
+        mutableIntStateOf(initialSchedule?.autoReenableMinutes ?: 1440)
+    }
+    var motionCondition by remember {
+        mutableStateOf(initialSchedule?.timing?.motionCondition)
+    }
+    var wifiConditionEnabled by remember {
+        mutableStateOf(initialSchedule?.timing?.wifiCondition != null)
+    }
+    var selectedWifiLabel by remember {
+        mutableStateOf(initialSchedule?.timing?.wifiCondition?.label ?: savedWifiNetworks.first().label)
+    }
+    var wifiSsid by remember {
+        mutableStateOf(initialSchedule?.timing?.wifiCondition?.ssid ?: "")
+    }
+    var wifiBssid by remember {
+        mutableStateOf(initialSchedule?.timing?.wifiCondition?.bssid ?: "")
     }
 
     var showAppPicker by remember { mutableStateOf(false) }
@@ -99,14 +121,32 @@ fun CreateScheduleScreen(
         1440 to stringResource(R.string.auto_reenable_24hr)
     )
 
+    fun currentWifiCondition(): WifiCondition? {
+        if (!wifiConditionEnabled) return null
+        val ssid = wifiSsid.trim()
+        if (ssid.isBlank()) return null
+        return WifiCondition(
+            label = selectedWifiLabel,
+            ssid = ssid,
+            bssid = wifiBssid.trim().takeIf { it.isNotBlank() }
+        )
+    }
+
+    fun isWifiConditionValid(): Boolean {
+        return !wifiConditionEnabled || currentWifiCondition() != null
+    }
+
     fun buildSchedule(): Schedule {
+        val wifiCondition = currentWifiCondition()
         val timing = ScheduleTiming(
             type = scheduleType,
             timeHour = if (scheduleType != ScheduleTiming.ScheduleType.MANUAL) selectedTime.hour else null,
             timeMinute = if (scheduleType != ScheduleTiming.ScheduleType.MANUAL) selectedTime.minute else null,
             endTimeHour = if (scheduleType != ScheduleTiming.ScheduleType.MANUAL) selectedEndTime.hour else null,
             endTimeMinute = if (scheduleType != ScheduleTiming.ScheduleType.MANUAL) selectedEndTime.minute else null,
-            daysOfWeek = if (scheduleType == ScheduleTiming.ScheduleType.WEEKLY) selectedDays else emptySet()
+            daysOfWeek = if (scheduleType == ScheduleTiming.ScheduleType.WEEKLY) selectedDays else emptySet(),
+            motionCondition = if (scheduleType != ScheduleTiming.ScheduleType.MANUAL) motionCondition else null,
+            wifiCondition = if (scheduleType != ScheduleTiming.ScheduleType.MANUAL) wifiCondition else null
         )
 
         return Schedule(
@@ -156,17 +196,31 @@ fun CreateScheduleScreen(
         if (updated.timing.daysOfWeek != original.timing.daysOfWeek) return false
         // Auto-reenable must not change
         if (updated.autoReenableMinutes != original.autoReenableMinutes) return false
+        // Context conditions must not be relaxed or changed
+        if (updated.timing.motionCondition != original.timing.motionCondition) return false
+        if (updated.timing.wifiCondition != original.timing.wifiCondition) return false
         return true
     }
 
     fun saveSchedule() {
         if (scheduleName.isBlank()) return
+        if (!isWifiConditionValid()) return
 
         val schedule = buildSchedule()
+        schedule.timing.wifiCondition?.let { condition ->
+            savedWifiNetworksStore.saveNetwork(
+                SavedWifiNetwork(
+                    label = condition.label,
+                    ssid = condition.ssid,
+                    bssid = condition.bssid
+                )
+            )
+            savedWifiNetworks = savedWifiNetworksStore.getNetworks()
+        }
 
         // If editing an active schedule and changes make it less strict, require friction gate
         if (existingSchedule != null &&
-            Schedules.isScheduleActive(existingSchedule.id) &&
+            Schedules.isScheduleActive(existingSchedule.id, context) &&
             !isStrictlyMoreRestrictive(existingSchedule, schedule)
         ) {
             onFrictionGateRequired(existingSchedule.frictionWordCount) {
@@ -529,6 +583,71 @@ fun CreateScheduleScreen(
                 }
             }
 
+            if (scheduleType != ScheduleTiming.ScheduleType.MANUAL) {
+                // ── Context conditions ──
+                SectionHeader("ACTIVE WHEN")
+
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(1.dp, RoundedCornerShape(12.dp)),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        MotionConditionPicker(
+                            selected = motionCondition,
+                            onSelected = { motionCondition = it }
+                        )
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Connected to Wi-Fi",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Text(
+                                    "Uses the current network name. If Wi-Fi identity is unavailable, this condition is inactive.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline
+                                )
+                            }
+                            Switch(
+                                checked = wifiConditionEnabled,
+                                onCheckedChange = { wifiConditionEnabled = it }
+                            )
+                        }
+
+                        if (wifiConditionEnabled) {
+                            WifiConditionEditor(
+                                savedNetworks = savedWifiNetworks,
+                                selectedLabel = selectedWifiLabel,
+                                onNetworkSelected = { network ->
+                                    selectedWifiLabel = network.label
+                                    network.ssid?.let { wifiSsid = it }
+                                    wifiBssid = network.bssid.orEmpty()
+                                },
+                                ssid = wifiSsid,
+                                onSsidChange = { wifiSsid = it },
+                                bssid = wifiBssid,
+                                onBssidChange = { wifiBssid = it },
+                                isValid = isWifiConditionValid()
+                            )
+                        }
+                    }
+                }
+            }
+
             // ── FRICTION SETTINGS section ──
             SectionHeader(stringResource(R.string.friction_settings).uppercase())
 
@@ -647,7 +766,7 @@ fun CreateScheduleScreen(
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary
                 ),
-                enabled = scheduleName.isNotBlank()
+                enabled = scheduleName.isNotBlank() && isWifiConditionValid()
             ) {
                 Icon(Icons.Rounded.Lock, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
@@ -705,7 +824,7 @@ fun CreateScheduleScreen(
             text = { Text(stringResource(R.string.delete_schedule_confirm, existingSchedule.name)) },
             confirmButton = {
                 TextButton(onClick = {
-                    if (Schedules.isScheduleActive(existingSchedule.id)) {
+                    if (Schedules.isScheduleActive(existingSchedule.id, context)) {
                         showDeleteDialog = false
                         onFrictionGateRequired(existingSchedule.frictionWordCount) {
                             Schedules.delete(existingSchedule.id, context)
@@ -760,6 +879,146 @@ private fun TimeBox(value: String) {
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun MotionConditionPicker(
+    selected: MotionCondition?,
+    onSelected: (MotionCondition?) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val label = selected?.activity?.label ?: "Any motion"
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "Motion",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it }
+        ) {
+            OutlinedTextField(
+                value = label,
+                onValueChange = {},
+                readOnly = true,
+                leadingIcon = { Icon(Icons.Rounded.DirectionsWalk, contentDescription = null) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(),
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                )
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Any motion") },
+                    onClick = {
+                        onSelected(null)
+                        expanded = false
+                    }
+                )
+                MotionCondition.Activity.entries.forEach { activity ->
+                    DropdownMenuItem(
+                        text = { Text(activity.label) },
+                        onClick = {
+                            onSelected(MotionCondition(activity))
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun WifiConditionEditor(
+    savedNetworks: List<SavedWifiNetwork>,
+    selectedLabel: String,
+    onNetworkSelected: (SavedWifiNetwork) -> Unit,
+    ssid: String,
+    onSsidChange: (String) -> Unit,
+    bssid: String,
+    onBssidChange: (String) -> Unit,
+    isValid: Boolean
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        ExposedDropdownMenuBox(
+            expanded = expanded,
+            onExpandedChange = { expanded = it }
+        ) {
+            OutlinedTextField(
+                value = selectedLabel,
+                onValueChange = {},
+                readOnly = true,
+                leadingIcon = { Icon(Icons.Rounded.Wifi, contentDescription = null) },
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(),
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                )
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false }
+            ) {
+                savedNetworks.forEach { network ->
+                    DropdownMenuItem(
+                        text = { Text(network.label) },
+                        onClick = {
+                            onNetworkSelected(network)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+
+        OutlinedTextField(
+            value = ssid,
+            onValueChange = onSsidChange,
+            label = { Text("Wi-Fi name") },
+            singleLine = true,
+            isError = ssid.isBlank(),
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(10.dp)
+        )
+
+        OutlinedTextField(
+            value = bssid,
+            onValueChange = onBssidChange,
+            label = { Text("BSSID optional") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(10.dp)
+        )
+
+        if (!isValid) {
+            Text(
+                "Enter a Wi-Fi network name.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
     }
 }
 

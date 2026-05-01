@@ -3,8 +3,10 @@ package net.kollnig.reddblockandroid.schedule
 import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
+import net.kollnig.reddblockandroid.data.MotionCondition
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
+import net.kollnig.reddblockandroid.data.WifiCondition
 import net.kollnig.reddblockandroid.util.prefs
 import org.json.JSONArray
 import org.json.JSONObject
@@ -301,14 +303,14 @@ object Schedules {
      * For MANUAL schedules: checks active sessions.
      * For DAILY/WEEKLY schedules: evaluates the time window in real-time.
      */
-    fun isAppBlocked(packageName: String): Boolean {
-        return findBlockingScheduleForApp(packageName) != null
+    fun isAppBlocked(packageName: String, context: Context? = null): Boolean {
+        return findBlockingScheduleForApp(packageName, context) != null
     }
 
     /**
      * Find the schedule that blocks an app, or null if not blocked.
      */
-    fun findBlockingScheduleForApp(packageName: String): Schedule? {
+    fun findBlockingScheduleForApp(packageName: String, context: Context? = null): Schedule? {
         val allSchedules = getAll().filter { it.isEnabled }
         val sessions = getActiveSessions()
 
@@ -321,7 +323,7 @@ object Schedules {
                 }
                 ScheduleTiming.ScheduleType.DAILY,
                 ScheduleTiming.ScheduleType.WEEKLY -> {
-                    if (ScheduleManager.isScheduleActiveNow(schedule)) return schedule
+                    if (ScheduleManager.isScheduleActiveNow(schedule, context)) return schedule
                 }
             }
         }
@@ -332,14 +334,14 @@ object Schedules {
      * Check if a website domain is blocked by ANY active schedule.
      * Returns the name of the blocking schedule, or null if not blocked.
      */
-    fun isWebsiteBlocked(domain: String): Boolean {
-        return findBlockingScheduleForWebsite(domain) != null
+    fun isWebsiteBlocked(domain: String, context: Context? = null): Boolean {
+        return findBlockingScheduleForWebsite(domain, context) != null
     }
 
     /**
      * Find the schedule that blocks a website domain, or null if not blocked.
      */
-    fun findBlockingScheduleForWebsite(domain: String): Schedule? {
+    fun findBlockingScheduleForWebsite(domain: String, context: Context? = null): Schedule? {
         val allSchedules = getAll().filter { it.isEnabled }
         val sessions = getActiveSessions()
 
@@ -355,7 +357,7 @@ object Schedules {
                 }
                 ScheduleTiming.ScheduleType.DAILY,
                 ScheduleTiming.ScheduleType.WEEKLY -> {
-                    if (ScheduleManager.isScheduleActiveNow(schedule)) return schedule
+                    if (ScheduleManager.isScheduleActiveNow(schedule, context)) return schedule
                 }
             }
         }
@@ -365,7 +367,7 @@ object Schedules {
     /**
      * Check if a specific schedule is currently active.
      */
-    fun isScheduleActive(scheduleId: String): Boolean {
+    fun isScheduleActive(scheduleId: String, context: Context? = null): Boolean {
         val schedule = get(scheduleId) ?: return false
         if (!schedule.isEnabled) return false
 
@@ -374,7 +376,7 @@ object Schedules {
                 getActiveSessions().any { it.scheduleId == scheduleId }
             ScheduleTiming.ScheduleType.DAILY,
             ScheduleTiming.ScheduleType.WEEKLY ->
-                ScheduleManager.isScheduleActiveNow(schedule)
+                ScheduleManager.isScheduleActiveNow(schedule, context)
         }
     }
 
@@ -451,7 +453,19 @@ object Schedules {
                     try { DayOfWeek.valueOf(arr.getString(it)) } catch (_: Exception) { null }
                 }.toSet()
             } ?: emptySet(),
-            isRecurring = timingJson.optBoolean("isRecurring", true)
+            isRecurring = timingJson.optBoolean("isRecurring", true),
+            motionCondition = timingJson.optJSONObject("motionCondition")?.let { conditionJson ->
+                MotionCondition(
+                    activity = MotionCondition.Activity.valueOf(conditionJson.getString("activity"))
+                )
+            },
+            wifiCondition = timingJson.optJSONObject("wifiCondition")?.let { conditionJson ->
+                WifiCondition(
+                    label = conditionJson.getString("label"),
+                    ssid = conditionJson.getString("ssid"),
+                    bssid = conditionJson.optString("bssid").takeIf { it.isNotBlank() }
+                )
+            }
         )
 
         val blockedApps = json.optJSONArray("blockedApps")?.let { arr ->
@@ -493,6 +507,18 @@ object Schedules {
                 s.daysOfWeek.forEach { put(it.name) }
             })
             put("isRecurring", s.isRecurring)
+            s.motionCondition?.let { condition ->
+                put("motionCondition", JSONObject().apply {
+                    put("activity", condition.activity.name)
+                })
+            }
+            s.wifiCondition?.let { condition ->
+                put("wifiCondition", JSONObject().apply {
+                    put("label", condition.label)
+                    put("ssid", condition.ssid)
+                    condition.bssid?.let { put("bssid", it) }
+                })
+            }
         })
 
         put("blockedApps", JSONArray(schedule.blockedApps))

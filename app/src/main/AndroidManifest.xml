@@ -3,6 +3,13 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
+    <!-- Android requires location permission before apps can read the connected Wi-Fi SSID/BSSID. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"
         tools:ignore="PackageVisibilityPolicy,QueryAllPackagesPermission" />
@@ -57,6 +64,10 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/blocker_configuration" />
         </service>
+
+        <receiver
+            android:name=".assistant.ActivityRecognitionReceiver"
+            android:exported="false" />
 
         <provider
             android:name="androidx.startup.InitializationProvider"

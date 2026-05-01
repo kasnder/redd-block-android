@@ -13,6 +13,8 @@ workRuntimeKtx = "2.10.0"
 gson = "2.11.0"
 splashscreen = "1.0.1"
 materialIconsExtended = "1.7.8"
+okhttp = "4.12.0"
+playServicesLocation = "21.3.0"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -34,6 +36,8 @@ androidx-navigation-compose = { group = "androidx.navigation", name = "navigatio
 androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workRuntimeKtx" }
 gson = { group = "com.google.code.gson", name = "gson", version.ref = "gson" }
 androidx-core-splashscreen = { group = "androidx.core", name = "core-splashscreen", version.ref = "splashscreen" }
+okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+play-services-location = { group = "com.google.android.gms", name = "play-services-location", version.ref = "playServicesLocation" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

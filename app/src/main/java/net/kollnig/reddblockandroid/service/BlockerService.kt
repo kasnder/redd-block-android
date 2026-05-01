@@ -52,7 +52,7 @@ class BlockerService : AccessibilityService() {
                         lastCheckedUrl = url
                         val domain = extractDomain(url)
                         if (domain != null) {
-                            val blockingSchedule = Schedules.findBlockingScheduleForWebsite(domain)
+                            val blockingSchedule = Schedules.findBlockingScheduleForWebsite(domain, this)
                             if (blockingSchedule != null) {
                                 Log.d(TAG, "Blocking website $domain in browser ($pkg)")
                                 navigateBrowserToBlank(pkg)
@@ -68,7 +68,7 @@ class BlockerService : AccessibilityService() {
         // Check app blocking
         if (shouldSkipPackage(pkg)) return
 
-        val blockingSchedule = Schedules.findBlockingScheduleForApp(pkg)
+        val blockingSchedule = Schedules.findBlockingScheduleForApp(pkg, this)
         if (blockingSchedule != null) {
             val now = System.currentTimeMillis()
             if (pkg != lastBlockedPkg || now - lastBlockedTime >= APP_BLOCK_THROTTLE_MS) {
