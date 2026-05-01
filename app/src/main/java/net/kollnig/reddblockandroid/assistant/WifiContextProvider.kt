@@ -47,6 +47,27 @@ class WifiContextProvider(context: Context) {
         return CurrentWifi(ssid = ssid)
     }
 
+    fun isWifiVisibleOrConnected(ssid: String): Boolean {
+        val normalized = ssid.trim()
+        if (normalized.isBlank() || !hasPermission()) return false
+        if (currentWifi()?.ssid == normalized) return true
+        return visibleWifiSsids().contains(normalized)
+    }
+
+    fun visibleWifiSsids(): Set<String> {
+        if (!hasPermission()) return emptySet()
+        return try {
+            wifiManager.scanResults
+                .orEmpty()
+                .mapNotNull { result ->
+                    cleanSsid(result.SSID).takeIf { it.isNotBlank() && it != UNKNOWN_SSID }
+                }
+                .toSet()
+        } catch (_: SecurityException) {
+            emptySet()
+        }
+    }
+
     private fun cleanSsid(value: String?): String {
         return value.orEmpty().trim().removeSurrounding("\"")
     }

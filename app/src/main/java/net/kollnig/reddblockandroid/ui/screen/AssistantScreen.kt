@@ -377,7 +377,7 @@ fun AssistantScreen(
                         Column(Modifier.weight(1f)) {
                             Text("Share Wi-Fi context")
                             Text(
-                                "Reads the currently connected Wi-Fi network for home, work, and campus schedules. Android requires location permission for SSID access.",
+                                "Reads Wi-Fi network names for home, work, and campus schedules. Android requires location permission for SSID access.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )

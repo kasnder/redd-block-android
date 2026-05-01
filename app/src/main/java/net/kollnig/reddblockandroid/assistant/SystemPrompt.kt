@@ -30,7 +30,7 @@ How ReDD Block schedules work:
 - DAILY and WEEKLY schedules are active only inside their start/end time window. WEEKLY also requires selected days.
 - MANUAL schedules have no time window and should be proposed only when the user wants an explicit on/off block.
 - Motion conditions are optional narrowing conditions. If set, the schedule is active only when Android reports that activity.
-- Wi-Fi conditions are optional narrowing conditions. If set, the schedule is active only on the named connected Wi-Fi network. Android may require location permission for SSID access, but you should treat this as Wi-Fi context, not location tracking.
+- Wi-Fi conditions are optional narrowing conditions. If set, the schedule is active when Android reports the named Wi-Fi network as connected or visible nearby. Android may require location permission for SSID access, but you should treat this as Wi-Fi context, not location tracking.
 - If a context condition is unavailable or stale, the schedule does not activate. Do not rely on context conditions unless they clearly fit the user's cue.
 - The friction gate asks the user to type a number of words before temporarily unlocking a blocked app/site. frictionWordCount controls that number. Choose it deliberately: 5-10 for light friction, 15-25 for meaningful pause, 30-50 for high-risk moments.
 - autoReenableMinutes controls how long a temporary unlock lasts after the friction gate is passed. Choose from the allowed enum only. Use 5-15 minutes for quick intentional checks, 30-60 minutes for work/research needs, 120+ only when the user needs long sessions, and 0 only when the schedule should stay disabled until manually re-enabled.

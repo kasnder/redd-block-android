@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
-    <!-- Android requires location permission before apps can read the connected Wi-Fi SSID. -->
+    <!-- Android requires location permission before apps can read Wi-Fi SSIDs. -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission
         android:name="android.permission.QUERY_ALL_PACKAGES"

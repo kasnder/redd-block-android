@@ -114,7 +114,6 @@ object ScheduleManager {
     private fun wifiConditionIsMet(condition: WifiCondition?, context: Context?): Boolean {
         if (condition == null) return true
         val appContext = context?.applicationContext ?: return false
-        val current = WifiContextProvider(appContext).currentWifi() ?: return false
-        return current.ssid == condition.ssid
+        return WifiContextProvider(appContext).isWifiVisibleOrConnected(condition.ssid)
     }
 }

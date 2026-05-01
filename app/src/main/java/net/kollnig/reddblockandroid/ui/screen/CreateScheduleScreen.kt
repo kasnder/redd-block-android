@@ -598,12 +598,12 @@ fun CreateScheduleScreen(
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(
-                                        "Connected to Wi-Fi",
+                                    "Near Wi-Fi",
                                         style = MaterialTheme.typography.bodyMedium,
                                         color = MaterialTheme.colorScheme.onSurface
                                     )
                                     Text(
-                                        "Uses the current network name. If Wi-Fi identity is unavailable, this condition is inactive.",
+                                    "Uses the network name. The schedule can activate when this Wi-Fi is connected or visible nearby.",
                                         style = MaterialTheme.typography.bodySmall,
                                         color = MaterialTheme.colorScheme.outline
                                     )
