@@ -22,6 +22,8 @@ class BlockerService : AccessibilityService() {
     private var lastBlockedPkg: String? = null
     private var lastBlockedTime: Long = 0
     private val APP_BLOCK_THROTTLE_MS = 2000L
+    private val appLabelCache = mutableMapOf<String, String>()
+    private val skipPackageCache = mutableMapOf<String, Boolean>()
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -92,24 +94,29 @@ class BlockerService : AccessibilityService() {
     }
 
     private fun getAppLabel(packageName: String): String {
+        appLabelCache[packageName]?.let { return it }
         return try {
             this.packageManager.getApplicationLabel(
                 this.packageManager.getApplicationInfo(packageName, 0)
             ).toString()
+                .also { appLabelCache[packageName] = it }
         } catch (_: Exception) {
             packageName
         }
     }
 
     private fun shouldSkipPackage(packageName: String): Boolean {
+        skipPackageCache[packageName]?.let { return it }
         return try {
             val info = this.packageManager.getApplicationInfo(packageName, 0)
             val isSystem = (info.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
-            if (isSystem) {
+            val shouldSkip = if (isSystem) {
                 this.packageManager.getLaunchIntentForPackage(packageName) == null
             } else {
                 false
             }
+            skipPackageCache[packageName] = shouldSkip
+            shouldSkip
         } catch (_: Exception) {
             false
         }

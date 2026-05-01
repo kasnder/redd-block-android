@@ -19,7 +19,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -301,8 +300,7 @@ fun CreateScheduleScreen(
                 Spacer(Modifier.height(8.dp))
                 Card(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(1.dp, RoundedCornerShape(12.dp)),
+                        .fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
@@ -390,8 +388,7 @@ fun CreateScheduleScreen(
                 if (blockedApps.isNotEmpty()) {
                     Card(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .shadow(1.dp, RoundedCornerShape(12.dp)),
+                            .fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
@@ -466,8 +463,7 @@ fun CreateScheduleScreen(
                         Card(
                             onClick = { showStartTimePicker = true },
                             modifier = Modifier
-                                .weight(1f)
-                                .shadow(1.dp, RoundedCornerShape(12.dp)),
+                                .weight(1f),
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
@@ -502,8 +498,7 @@ fun CreateScheduleScreen(
                         Card(
                             onClick = { showEndTimePicker = true },
                             modifier = Modifier
-                                .weight(1f)
-                                .shadow(1.dp, RoundedCornerShape(12.dp)),
+                                .weight(1f),
                             shape = RoundedCornerShape(12.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
@@ -575,8 +570,7 @@ fun CreateScheduleScreen(
 
                     Card(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .shadow(1.dp, RoundedCornerShape(12.dp)),
+                            .fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                     ) {
@@ -653,8 +647,7 @@ fun CreateScheduleScreen(
                 // Friction word count
                 Card(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(1.dp, RoundedCornerShape(12.dp)),
+                        .fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {
@@ -700,8 +693,7 @@ fun CreateScheduleScreen(
             item {
                 Card(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(1.dp, RoundedCornerShape(12.dp)),
+                        .fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                 ) {

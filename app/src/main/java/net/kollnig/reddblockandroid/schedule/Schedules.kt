@@ -29,6 +29,11 @@ object Schedules {
     private const val SCHEDULES_KEY = "routines" // keep legacy key for data compat
     private const val ACTIVE_SESSIONS_KEY = "active_routine_sessions" // keep legacy key
 
+    private var cachedSchedulesJson: String? = null
+    private var cachedSchedules: List<Schedule> = emptyList()
+    private var cachedSessionsJson: String? = null
+    private var cachedSessions: List<ActiveSession> = emptyList()
+
     data class ActiveSession(
         val scheduleId: String,
         val startTime: Long,
@@ -38,11 +43,18 @@ object Schedules {
 
     fun getAll(): List<Schedule> {
         val json = prefs.getString(SCHEDULES_KEY, "[]") ?: "[]"
+        if (json == cachedSchedulesJson) return cachedSchedules
         return try {
             JSONArray(json).let { arr ->
                 (0 until arr.length()).mapNotNull { parseSchedule(arr.getJSONObject(it)) }
+                    .also { schedules ->
+                        cachedSchedulesJson = json
+                        cachedSchedules = schedules
+                    }
             }
         } catch (_: Exception) {
+            cachedSchedulesJson = json
+            cachedSchedules = emptyList()
             emptyList()
         }
     }
@@ -210,8 +222,10 @@ object Schedules {
     private fun saveAll(schedules: List<Schedule>) {
         val json = JSONArray().apply {
             schedules.forEach { put(scheduleToJson(it)) }
-        }
-        prefs.edit { putString(SCHEDULES_KEY, json.toString()) }
+        }.toString()
+        cachedSchedulesJson = json
+        cachedSchedules = schedules.toList()
+        prefs.edit { putString(SCHEDULES_KEY, json) }
     }
 
     fun startSession(context: Context, schedule: Schedule) {
@@ -245,6 +259,7 @@ object Schedules {
 
     fun getActiveSessions(): List<ActiveSession> {
         val json = prefs.getString(ACTIVE_SESSIONS_KEY, "[]") ?: "[]"
+        if (json == cachedSessionsJson) return cachedSessions
         return try {
             JSONArray(json).let { arr ->
                 (0 until arr.length()).mapNotNull {
@@ -274,9 +289,14 @@ object Schedules {
                     } catch (_: Exception) {
                         null
                     }
+                }.also { sessions ->
+                    cachedSessionsJson = json
+                    cachedSessions = sessions
                 }
             }
         } catch (_: Exception) {
+            cachedSessionsJson = json
+            cachedSessions = emptyList()
             emptyList()
         }
     }
@@ -292,8 +312,10 @@ object Schedules {
                     put("blockedWebsites", JSONArray(session.blockedWebsites.toList()))
                 })
             }
-        }
-        prefs.edit { putString(ACTIVE_SESSIONS_KEY, json.toString()) }
+        }.toString()
+        cachedSessionsJson = json
+        cachedSessions = sessions.toList()
+        prefs.edit { putString(ACTIVE_SESSIONS_KEY, json) }
     }
 
     /**

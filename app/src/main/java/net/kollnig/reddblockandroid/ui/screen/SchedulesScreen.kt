@@ -14,7 +14,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -42,18 +41,22 @@ fun SchedulesScreen(
 ) {
     val context = LocalContext.current
     var schedules by remember { mutableStateOf(Schedules.getAll()) }
-    var refreshTick by remember { mutableIntStateOf(0) }
+    var activeScheduleIds by remember {
+        mutableStateOf(Schedules.getActiveScheduleIds(schedules, context))
+    }
 
     fun refreshSchedules() {
         val now = System.currentTimeMillis()
-        for (schedule in Schedules.getAll()) {
+        var latestSchedules = Schedules.getAll()
+        for (schedule in latestSchedules) {
             val until = schedule.disabledUntil
             if (!schedule.isEnabled && until != null && until <= now) {
                 Schedules.reEnableSchedule(context, schedule.id)
             }
         }
-        schedules = Schedules.getAll()
-        refreshTick++
+        latestSchedules = Schedules.getAll()
+        schedules = latestSchedules
+        activeScheduleIds = Schedules.getActiveScheduleIds(latestSchedules, context)
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -145,8 +148,7 @@ fun SchedulesScreen(
                     )
                 }
                 items(schedules, key = { it.id }) { schedule ->
-                    @Suppress("UNUSED_EXPRESSION") refreshTick
-                    val isActive = Schedules.isScheduleActive(schedule.id, context)
+                    val isActive = activeScheduleIds.contains(schedule.id)
                     ScheduleItem(
                             schedule = schedule,
                             isActive = isActive,
@@ -196,9 +198,8 @@ private fun ScheduleItem(
 
     Card(
             onClick = onClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(2.dp, RoundedCornerShape(16.dp)),
+        modifier = Modifier
+                .fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = containerColor),
             border = if (isActive) BorderStroke(1.5.dp, IndigoPrimary.copy(alpha = 0.4f)) else null

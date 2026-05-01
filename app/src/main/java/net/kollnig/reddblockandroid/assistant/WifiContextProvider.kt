@@ -41,10 +41,16 @@ class WifiContextProvider(context: Context) {
 
     fun currentWifi(): CurrentWifi? {
         if (!hasPermission()) return null
+        cachedCurrentWifi?.takeIf { System.currentTimeMillis() - cachedCurrentWifiAtMs < CACHE_MS }?.let {
+            return it
+        }
         val info = wifiManager.connectionInfo ?: return null
         val ssid = cleanSsid(info.ssid)
         if (ssid.isBlank() || ssid == UNKNOWN_SSID) return null
-        return CurrentWifi(ssid = ssid)
+        return CurrentWifi(ssid = ssid).also {
+            cachedCurrentWifi = it
+            cachedCurrentWifiAtMs = System.currentTimeMillis()
+        }
     }
 
     fun isWifiVisibleOrConnected(ssid: String): Boolean {
@@ -56,6 +62,9 @@ class WifiContextProvider(context: Context) {
 
     fun visibleWifiSsids(): Set<String> {
         if (!hasPermission()) return emptySet()
+        cachedVisibleSsids?.takeIf { System.currentTimeMillis() - cachedVisibleSsidsAtMs < CACHE_MS }?.let {
+            return it
+        }
         return try {
             wifiManager.scanResults
                 .orEmpty()
@@ -63,6 +72,10 @@ class WifiContextProvider(context: Context) {
                     cleanSsid(result.SSID).takeIf { it.isNotBlank() && it != UNKNOWN_SSID }
                 }
                 .toSet()
+                .also {
+                    cachedVisibleSsids = it
+                    cachedVisibleSsidsAtMs = System.currentTimeMillis()
+                }
         } catch (_: SecurityException) {
             emptySet()
         }
@@ -78,5 +91,11 @@ class WifiContextProvider(context: Context) {
 
     companion object {
         private const val UNKNOWN_SSID = "<unknown ssid>"
+        private const val CACHE_MS = 5_000L
+
+        private var cachedCurrentWifiAtMs: Long = 0L
+        private var cachedVisibleSsidsAtMs: Long = 0L
+        private var cachedCurrentWifi: CurrentWifi? = null
+        private var cachedVisibleSsids: Set<String>? = null
     }
 }
