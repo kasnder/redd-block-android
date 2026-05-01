@@ -115,8 +115,6 @@ object ScheduleManager {
         if (condition == null) return true
         val appContext = context?.applicationContext ?: return false
         val current = WifiContextProvider(appContext).currentWifi() ?: return false
-        val ssidMatches = current.ssid == condition.ssid
-        val bssidMatches = condition.bssid == null || current.bssid == condition.bssid
-        return ssidMatches && bssidMatches
+        return current.ssid == condition.ssid
     }
 }

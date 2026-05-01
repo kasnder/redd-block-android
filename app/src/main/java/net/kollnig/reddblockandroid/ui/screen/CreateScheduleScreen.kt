@@ -103,9 +103,6 @@ fun CreateScheduleScreen(
     var wifiSsid by remember {
         mutableStateOf(initialSchedule?.timing?.wifiCondition?.ssid ?: currentWifi?.ssid.orEmpty())
     }
-    var wifiBssid by remember {
-        mutableStateOf(initialSchedule?.timing?.wifiCondition?.bssid ?: currentWifi?.bssid.orEmpty())
-    }
 
     var showAppPicker by remember { mutableStateOf(false) }
     var showWebsiteDialog by remember { mutableStateOf(false) }
@@ -132,8 +129,7 @@ fun CreateScheduleScreen(
         if (ssid.isBlank()) return null
         return WifiCondition(
             label = selectedWifiLabel,
-            ssid = ssid,
-            bssid = wifiBssid.trim().takeIf { it.isNotBlank() }
+            ssid = ssid
         )
     }
 
@@ -216,8 +212,7 @@ fun CreateScheduleScreen(
             savedWifiNetworksStore.saveNetwork(
                 SavedWifiNetwork(
                     label = condition.label,
-                    ssid = condition.ssid,
-                    bssid = condition.bssid
+                    ssid = condition.ssid
                 )
             )
             savedWifiNetworks = savedWifiNetworksStore.getNetworks()
@@ -634,7 +629,6 @@ fun CreateScheduleScreen(
                                     if (enabled && wifiSsid.isBlank()) {
                                         currentWifi?.let { wifi ->
                                             wifiSsid = wifi.ssid
-                                            wifiBssid = wifi.bssid.orEmpty()
                                         }
                                     }
                                 }
@@ -648,17 +642,13 @@ fun CreateScheduleScreen(
                                 onNetworkSelected = { network ->
                                     selectedWifiLabel = network.label
                                     network.ssid?.let { wifiSsid = it }
-                                    wifiBssid = network.bssid.orEmpty()
                                 },
                                 ssid = wifiSsid,
                                 onSsidChange = { wifiSsid = it },
-                                bssid = wifiBssid,
-                                onBssidChange = { wifiBssid = it },
                                 currentWifi = currentWifi,
                                 onUseCurrentWifi = {
                                     currentWifi?.let { wifi ->
                                         wifiSsid = wifi.ssid
-                                        wifiBssid = wifi.bssid.orEmpty()
                                     }
                                 },
                                 isValid = isWifiConditionValid()
@@ -970,8 +960,6 @@ private fun WifiConditionEditor(
     onNetworkSelected: (SavedWifiNetwork) -> Unit,
     ssid: String,
     onSsidChange: (String) -> Unit,
-    bssid: String,
-    onBssidChange: (String) -> Unit,
     currentWifi: WifiContextProvider.CurrentWifi?,
     onUseCurrentWifi: () -> Unit,
     isValid: Boolean
@@ -1035,15 +1023,6 @@ private fun WifiConditionEditor(
                 Text("Use current Wi-Fi: ${currentWifi.ssid}", maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
-
-        OutlinedTextField(
-            value = bssid,
-            onValueChange = onBssidChange,
-            label = { Text("BSSID optional") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp)
-        )
 
         if (!isValid) {
             Text(

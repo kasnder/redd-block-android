@@ -511,7 +511,7 @@ private fun DataSharingNotice(
     val optionalData = mutableListOf<String>()
     if (usageSharing) optionalData.add("Usage Stats app labels, package names, minutes used, and time-of-day buckets")
     if (motionSharing) optionalData.add("recent motion state such as still, walking, cycling, running, or in vehicle")
-    if (wifiSharing) optionalData.add("current and saved Wi-Fi names, and BSSID when available")
+    if (wifiSharing) optionalData.add("current and saved Wi-Fi names")
     val optionalText = if (optionalData.isEmpty()) {
         "Optional context is currently off."
     } else {

@@ -462,8 +462,7 @@ object Schedules {
             wifiCondition = timingJson.optJSONObject("wifiCondition")?.let { conditionJson ->
                 WifiCondition(
                     label = conditionJson.getString("label"),
-                    ssid = conditionJson.getString("ssid"),
-                    bssid = conditionJson.optString("bssid").takeIf { it.isNotBlank() }
+                    ssid = conditionJson.getString("ssid")
                 )
             }
         )
@@ -516,7 +515,6 @@ object Schedules {
                 put("wifiCondition", JSONObject().apply {
                     put("label", condition.label)
                     put("ssid", condition.ssid)
-                    condition.bssid?.let { put("bssid", it) }
                 })
             }
         })

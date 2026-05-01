@@ -160,8 +160,7 @@ class ToolValidator(
         if (json == null || json.isNull("ssid")) return null
         return WifiCondition(
             label = json.getString("label").trim(),
-            ssid = json.getString("ssid").trim(),
-            bssid = json.optString("bssid").takeIf { it.isNotBlank() }
+            ssid = json.getString("ssid").trim()
         )
     }
 

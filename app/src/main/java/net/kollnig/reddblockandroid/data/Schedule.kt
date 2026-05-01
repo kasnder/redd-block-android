@@ -64,6 +64,5 @@ data class MotionCondition(
 
 data class WifiCondition(
     val label: String,
-    val ssid: String,
-    val bssid: String? = null
+    val ssid: String
 )

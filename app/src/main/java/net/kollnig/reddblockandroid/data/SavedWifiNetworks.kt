@@ -7,8 +7,7 @@ import org.json.JSONObject
 
 data class SavedWifiNetwork(
     val label: String,
-    val ssid: String?,
-    val bssid: String? = null
+    val ssid: String?
 ) {
     fun isConfigured(): Boolean = !ssid.isNullOrBlank()
 }
@@ -24,8 +23,7 @@ class SavedWifiNetworksStore(context: Context) {
                 val obj = arr.getJSONObject(index)
                 SavedWifiNetwork(
                     label = obj.getString("label"),
-                    ssid = obj.optString("ssid").takeIf { it.isNotBlank() },
-                    bssid = obj.optString("bssid").takeIf { it.isNotBlank() }
+                    ssid = obj.optString("ssid").takeIf { it.isNotBlank() }
                 )
             }
             if (parsed.isEmpty()) DEFAULT_NETWORKS else parsed
@@ -44,7 +42,6 @@ class SavedWifiNetworksStore(context: Context) {
                     put(JSONObject().apply {
                         put("label", it.label)
                         it.ssid?.let { ssid -> put("ssid", ssid) }
-                        it.bssid?.let { bssid -> put("bssid", bssid) }
                     })
                 }
             }.toString())

@@ -86,10 +86,9 @@ Otherwise reply with a concise question or explanation.
             "additionalProperties": false,
             "properties": {
               "label": { "type": "string", "description": "Human label such as Home, Work, or Campus." },
-              "ssid": { "type": "string", "description": "Connected Wi-Fi SSID from current_wifi or saved_wifi_networks." },
-              "bssid": { "type": ["string", "null"], "description": "Optional BSSID. Prefer null unless a saved network includes one." }
+              "ssid": { "type": "string", "description": "Connected Wi-Fi SSID from current_wifi or saved_wifi_networks." }
             },
-            "required": ["label", "ssid", "bssid"]
+            "required": ["label", "ssid"]
           }
         },
         "required": ["type", "timeHour", "timeMinute", "endTimeHour", "endTimeMinute", "daysOfWeek", "motionCondition", "wifiCondition"]
@@ -174,10 +173,9 @@ Otherwise reply with a concise question or explanation.
             "additionalProperties": false,
             "properties": {
               "label": { "type": "string" },
-              "ssid": { "type": "string" },
-              "bssid": { "type": ["string", "null"] }
+              "ssid": { "type": "string" }
             },
-            "required": ["label", "ssid", "bssid"]
+            "required": ["label", "ssid"]
           }
         },
         "required": ["type", "timeHour", "timeMinute", "endTimeHour", "endTimeMinute", "daysOfWeek", "motionCondition", "wifiCondition"]

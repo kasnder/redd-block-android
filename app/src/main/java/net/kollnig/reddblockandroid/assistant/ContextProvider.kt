@@ -91,7 +91,6 @@ class ContextProvider(context: Context, private val preferences: AssistantPrefer
                         JSONObject()
                             .put("label", network.label)
                             .put("ssid", network.ssid ?: JSONObject.NULL)
-                            .put("bssid", network.bssid ?: JSONObject.NULL)
                     )
                 }
             })

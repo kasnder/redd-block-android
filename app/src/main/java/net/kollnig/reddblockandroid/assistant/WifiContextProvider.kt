@@ -36,7 +36,6 @@ class WifiContextProvider(context: Context) {
         val current = currentWifi() ?: return null
         return JSONObject()
             .put("ssid", current.ssid)
-            .put("bssid", current.bssid ?: JSONObject.NULL)
             .put("source", "current_wifi_connection")
     }
 
@@ -45,10 +44,7 @@ class WifiContextProvider(context: Context) {
         val info = wifiManager.connectionInfo ?: return null
         val ssid = cleanSsid(info.ssid)
         if (ssid.isBlank() || ssid == UNKNOWN_SSID) return null
-        return CurrentWifi(
-            ssid = ssid,
-            bssid = info.bssid?.takeIf { it.isNotBlank() && it != "02:00:00:00:00:00" }
-        )
+        return CurrentWifi(ssid = ssid)
     }
 
     private fun cleanSsid(value: String?): String {
@@ -56,8 +52,7 @@ class WifiContextProvider(context: Context) {
     }
 
     data class CurrentWifi(
-        val ssid: String,
-        val bssid: String?
+        val ssid: String
     )
 
     companion object {
