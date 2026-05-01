@@ -47,10 +47,19 @@ class ContextProvider(context: Context, private val preferences: AssistantPrefer
         )
     }
 
-    fun buildPrompt(userMessage: String): String {
+    fun buildPrompt(userMessage: String, conversationMessages: List<AssistantMessage>): String {
         val context = buildContext()
         return JSONObject()
             .put("user_problem", userMessage)
+            .put("conversation_history", JSONArray().apply {
+                conversationMessages.takeLast(MAX_HISTORY_MESSAGES).forEach { message ->
+                    put(
+                        JSONObject()
+                            .put("role", message.role.name.lowercase())
+                            .put("text", message.text)
+                    )
+                }
+            })
             .put("user_goals", context.goals)
             .put("local_time", DateTimeFormatter.ISO_OFFSET_DATE_TIME.format(Instant.now().atZone(ZoneId.systemDefault())))
             .put("timezone", ZoneId.systemDefault().id)
@@ -156,5 +165,9 @@ class ContextProvider(context: Context, private val preferences: AssistantPrefer
             in 17..21 -> "evening"
             else -> "night"
         }
+    }
+
+    companion object {
+        private const val MAX_HISTORY_MESSAGES = 16
     }
 }

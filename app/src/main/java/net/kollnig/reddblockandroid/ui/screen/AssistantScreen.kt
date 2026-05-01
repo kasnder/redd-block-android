@@ -5,12 +5,14 @@ import android.content.ActivityNotFoundException
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Delete
@@ -109,7 +111,7 @@ fun AssistantScreen(
         scope.launch {
             isSending = true
             try {
-                val result = viewModel.sendMessage(text)
+                val result = viewModel.sendMessage(text, messages.toList())
                 when (result) {
                     is AssistantResult.Message ->
                         messages.add(AssistantMessage(AssistantMessage.Role.ASSISTANT, result.text))
@@ -198,6 +200,12 @@ fun AssistantScreen(
             }
 
             if (isFreshChat) {
+                DataSharingNotice(
+                    usageSharing = usageSharing,
+                    motionSharing = motionSharing,
+                    wifiSharing = wifiSharing
+                )
+                Spacer(Modifier.height(8.dp))
                 FlowRow(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -254,7 +262,15 @@ fun AssistantScreen(
             onDismissRequest = { showSettings = false },
             title = { Text("Assistant setup", fontWeight = FontWeight.Bold) },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    DataSharingNotice(
+                        usageSharing = usageSharing,
+                        motionSharing = motionSharing,
+                        wifiSharing = wifiSharing
+                    )
                     OutlinedTextField(
                         value = apiKey,
                         onValueChange = { apiKey = it },
@@ -484,6 +500,46 @@ fun assistantWelcomeMessage(): AssistantMessage {
         AssistantMessage.Role.ASSISTANT,
         "Tell me what is going wrong with your phone use. I can draft a new schedule, but I cannot weaken existing blocks."
     )
+}
+
+@Composable
+private fun DataSharingNotice(
+    usageSharing: Boolean,
+    motionSharing: Boolean,
+    wifiSharing: Boolean
+) {
+    val optionalData = mutableListOf<String>()
+    if (usageSharing) optionalData.add("Usage Stats app labels, package names, minutes used, and time-of-day buckets")
+    if (motionSharing) optionalData.add("recent motion state such as still, walking, cycling, running, or in vehicle")
+    if (wifiSharing) optionalData.add("current and saved Wi-Fi names, and BSSID when available")
+    val optionalText = if (optionalData.isEmpty()) {
+        "Optional context is currently off."
+    } else {
+        "Optional context currently on: ${optionalData.joinToString("; ")}."
+    }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                "Data sent to OpenAI",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "Each request includes your message, recent chat history, goal notes, local time/timezone, installed app labels/package names, and existing schedules including names, blocked apps/sites, timing, friction, pause duration, motion and Wi-Fi conditions. $optionalText",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 private fun proposalSummary(proposal: ScheduleProposal): String {

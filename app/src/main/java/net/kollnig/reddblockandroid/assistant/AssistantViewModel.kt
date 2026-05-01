@@ -58,13 +58,16 @@ class AssistantViewModel(context: Context) {
 
     fun wifiRuntimePermission(): String = wifiContextProvider.runtimePermission()
 
-    suspend fun sendMessage(userMessage: String): AssistantResult {
+    suspend fun sendMessage(
+        userMessage: String,
+        conversationMessages: List<AssistantMessage>
+    ): AssistantResult {
         val key = preferences.getApiKey()?.takeIf { it.isNotBlank() }
             ?: throw IllegalStateException("Add an OpenAI API key first.")
         val model = preferences.getModel()
         return withContext(Dispatchers.IO) {
             val installedApps = contextProvider.getInstalledApps()
-            val prompt = contextProvider.buildPrompt(userMessage)
+            val prompt = contextProvider.buildPrompt(userMessage, conversationMessages)
             openAIClient.requestAssistantTurn(key, model, prompt, installedApps)
         }
     }
