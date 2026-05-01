@@ -8,7 +8,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -37,7 +37,7 @@ import kotlinx.coroutines.launch
 import net.kollnig.reddblockandroid.assistant.AssistantMessage
 import net.kollnig.reddblockandroid.assistant.AssistantResult
 import net.kollnig.reddblockandroid.assistant.AssistantViewModel
-import net.kollnig.reddblockandroid.assistant.OpenAIModels
+import net.kollnig.reddblockandroid.assistant.AssistantAiModels
 import net.kollnig.reddblockandroid.assistant.ScheduleAmendmentProposal
 import net.kollnig.reddblockandroid.assistant.ScheduleProposal
 import net.kollnig.reddblockandroid.data.Schedule
@@ -80,7 +80,7 @@ fun AssistantScreen(
     }
     fun syncSettingsDrafts() {
         viewModel.apiKeyDraft = apiKey
-        viewModel.modelDraft = model.ifBlank { OpenAIModels.DEFAULT_MODEL }
+        viewModel.modelDraft = AssistantAiModels.normalize(model)
         viewModel.goalsDraft = goals
         viewModel.usageSharingEnabled = usageSharing
         viewModel.motionSharingEnabled = motionSharing
@@ -142,7 +142,7 @@ fun AssistantScreen(
                 messages.add(
                     AssistantMessage(
                         AssistantMessage.Role.ASSISTANT,
-                        e.message ?: "I could not reach OpenAI. Check your key and network connection."
+                        e.message ?: "I could not reach Nebius. Check your key and network connection."
                     )
                 )
             } finally {
@@ -191,12 +191,17 @@ fun AssistantScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(vertical = 12.dp)
             ) {
-                itemsIndexed(
+                items(
                     items = messages,
-                    key = { index, message ->
-                        "${message.role}-${message.text.hashCode()}-${index}"
+                    key = { message -> message.id },
+                    contentType = { message ->
+                        when {
+                            message.proposal != null -> "proposal"
+                            message.amendment != null -> "amendment"
+                            else -> "message"
+                        }
                     }
-                ) { _, message ->
+                ) { message ->
                     AssistantMessageCard(
                         message = message,
                         onReviewProposal = onReviewProposal,
@@ -246,7 +251,7 @@ fun AssistantScreen(
                     onValueChange = { messageDraft = it },
                     modifier = Modifier.weight(1f),
                     enabled = hasApiKey && !isSending,
-                    placeholder = { Text(if (hasApiKey) "What problem should ReDD help with?" else "Add an OpenAI key first") },
+                    placeholder = { Text(if (hasApiKey) "What problem should ReDD help with?" else "Add a Nebius key first") },
                     shape = RoundedCornerShape(12.dp),
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
                     keyboardActions = KeyboardActions(onSend = { sendCurrentMessage() }),
@@ -279,18 +284,15 @@ fun AssistantScreen(
                     OutlinedTextField(
                         value = apiKey,
                         onValueChange = { apiKey = it },
-                        label = { Text("OpenAI API key") },
+                        label = { Text("Nebius API key") },
                         leadingIcon = { Icon(Icons.Rounded.Key, contentDescription = null) },
                         visualTransformation = PasswordVisualTransformation(),
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
-                    OutlinedTextField(
-                        value = model,
-                        onValueChange = { model = it },
-                        label = { Text("Model") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
+                    ModelPresetSelector(
+                        selectedModel = model,
+                        onModelSelected = { model = it }
                     )
                     OutlinedTextField(
                         value = goals,
@@ -431,6 +433,9 @@ private fun AssistantMessageCard(
     onReviewAmendment: (ScheduleAmendmentProposal) -> Unit
 ) {
     val isUser = message.role == AssistantMessage.Role.USER
+    val displayText = remember(message.id, message.text, isUser) {
+        if (isUser) message.text else message.text.toPlainAssistantText()
+    }
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
@@ -459,10 +464,11 @@ private fun AssistantMessageCard(
                     )
                 }
                 Text(
-                    if (isUser) message.text else message.text.toPlainAssistantText(),
+                    displayText,
                     style = MaterialTheme.typography.bodyMedium
                 )
                 message.proposal?.let { proposal ->
+                    val summary = remember(proposal) { proposalSummary(proposal) }
                     HorizontalDivider()
                     Text(
                         proposal.name,
@@ -470,7 +476,7 @@ private fun AssistantMessageCard(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        proposalSummary(proposal),
+                        summary,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 5,
@@ -481,6 +487,7 @@ private fun AssistantMessageCard(
                     }
                 }
                 message.amendment?.let { amendment ->
+                    val summary = remember(amendment) { scheduleSummary(amendment.updatedSchedule) }
                     HorizontalDivider()
                     Text(
                         "Amend ${amendment.originalName}",
@@ -488,7 +495,7 @@ private fun AssistantMessageCard(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        scheduleSummary(amendment.updatedSchedule),
+                        summary,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 5,
@@ -508,6 +515,43 @@ fun assistantWelcomeMessage(): AssistantMessage {
         AssistantMessage.Role.ASSISTANT,
         "Aloha, I’m Ulrik. I can help you set up blocks that fit the moments when distracting apps are hardest to resist. Tell me what gets in the way, or ask me to review your current schedules."
     )
+}
+
+@Composable
+@OptIn(ExperimentalLayoutApi::class)
+private fun ModelPresetSelector(
+    selectedModel: String,
+    onModelSelected: (String) -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            "Model",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            AssistantAiModels.PRESETS.forEach { preset ->
+                FilterChip(
+                    selected = selectedModel == preset.id,
+                    onClick = { onModelSelected(preset.id) },
+                    label = {
+                        Column {
+                            Text(preset.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(
+                                preset.description,
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                )
+            }
+        }
+    }
 }
 
 @Composable
@@ -536,13 +580,13 @@ private fun DataSharingNotice(
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
-                "Data sent to OpenAI",
+                "Data sent to Nebius",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                "Each request includes your message, recent chat history, goal notes, local time/timezone, installed app labels/package names, and existing schedules including names, blocked apps/sites, timing, friction, pause duration, motion and Wi-Fi conditions. $optionalText",
+                "Each request goes to Nebius Token Factory using a selected eu-north1 model and includes your message, recent chat history, goal notes, local time/timezone, installed app labels/package names, and existing schedules including names, blocked apps/sites, timing, friction, pause duration, motion and Wi-Fi conditions. $optionalText",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -597,16 +641,21 @@ private fun Int.pauseLabel(): String = when (this) {
     else -> "$this minutes"
 }
 
+private val MarkdownHeaderRegex = Regex("""^\s{0,3}#{1,6}\s*""")
+private val MarkdownBoldStarRegex = Regex("""\*\*(.*?)\*\*""")
+private val MarkdownBoldUnderRegex = Regex("""__(.*?)__""")
+private val MarkdownListRegex = Regex("""^\s*[-*]\s+""")
+
 private fun String.toPlainAssistantText(): String {
     return replace("```", "")
         .lineSequence()
         .map { line ->
             line
-                .replace(Regex("""^\s{0,3}#{1,6}\s*"""), "")
-                .replace(Regex("""\*\*(.*?)\*\*"""), "$1")
-                .replace(Regex("""__(.*?)__"""), "$1")
+                .replace(MarkdownHeaderRegex, "")
+                .replace(MarkdownBoldStarRegex, "$1")
+                .replace(MarkdownBoldUnderRegex, "$1")
                 .replace("`", "")
-                .replace(Regex("""^\s*[-*]\s+"""), "- ")
+                .replace(MarkdownListRegex, "- ")
                 .trimEnd()
         }
         .joinToString("\n")

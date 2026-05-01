@@ -51,7 +51,7 @@ class ContextProvider(context: Context, private val preferences: AssistantPrefer
         val context = buildContext()
         return JSONObject()
             .put("user_problem", userMessage)
-            .put("conversation_history", JSONArray().apply {
+            .put("recent_conversation_history", JSONArray().apply {
                 conversationMessages.takeLast(MAX_HISTORY_MESSAGES).forEach { message ->
                     put(
                         JSONObject()
@@ -167,6 +167,6 @@ class ContextProvider(context: Context, private val preferences: AssistantPrefer
     }
 
     companion object {
-        private const val MAX_HISTORY_MESSAGES = 16
+        private const val MAX_HISTORY_MESSAGES = 6
     }
 }

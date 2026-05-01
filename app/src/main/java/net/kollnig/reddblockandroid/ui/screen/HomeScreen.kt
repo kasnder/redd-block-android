@@ -59,6 +59,16 @@ fun HomeScreen(
     val exportErrorMsg = stringResource(R.string.export_error)
     val importSuccessMsg = stringResource(R.string.import_success)
     val importErrorMsg = stringResource(R.string.import_error)
+    val manualLabel = stringResource(R.string.manual)
+    val dailyTimeRangeFormat = stringResource(R.string.daily_time_range)
+    val blockedItemsCountFormat = stringResource(R.string.blocked_items_count)
+    val currentLocale = Locale.getDefault()
+    val switchColors = SwitchDefaults.colors(
+        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+        checkedTrackColor = IndigoPrimary,
+        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+    )
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -114,6 +124,26 @@ fun HomeScreen(
         latestSchedules = Schedules.getAll()
         schedules = latestSchedules
         activeScheduleIds = Schedules.getActiveScheduleIds(latestSchedules, context)
+    }
+
+    val handleEditSchedule = remember(onEditSchedule) {
+        { schedule: Schedule ->
+            // Always allow editing — strictness is checked at save time
+            onEditSchedule(schedule)
+        }
+    }
+    val handleToggleSchedule = remember(context, onFrictionGateRequired) {
+        { schedule: Schedule, isActive: Boolean ->
+            if (isActive) {
+                onFrictionGateRequired(schedule) {
+                    Schedules.toggle(schedule.id, context)
+                    refreshSchedules()
+                }
+            } else {
+                Schedules.toggle(schedule.id, context)
+                refreshSchedules()
+            }
+        }
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -267,25 +297,14 @@ fun HomeScreen(
                     ScheduleItem(
                         schedule = schedule,
                         isActive = isActive,
-                        onClick = {
-                            // Always allow editing — strictness is checked at save time
-                            onEditSchedule(schedule)
-                        },
-                        onToggle = {
-                            if (isActive) {
-                                onFrictionGateRequired(schedule) {
-                                    Schedules.toggle(schedule.id, context)
-                                    refreshSchedules()
-                                }
-                            } else {
-                                Schedules.toggle(schedule.id, context)
-                                refreshSchedules()
-                            }
-                        },
-                        onEdit = {
-                            // Always allow editing — strictness is checked at save time
-                            onEditSchedule(schedule)
-                        }
+                        manualLabel = manualLabel,
+                        dailyTimeRangeFormat = dailyTimeRangeFormat,
+                        blockedItemsCountFormat = blockedItemsCountFormat,
+                        locale = currentLocale,
+                        switchColors = switchColors,
+                        onClick = handleEditSchedule,
+                        onToggle = handleToggleSchedule,
+                        onEdit = handleEditSchedule
                     )
                 }
             }
@@ -363,12 +382,32 @@ fun HomeScreen(
 private fun ScheduleItem(
     schedule: Schedule,
     isActive: Boolean,
-    onClick: () -> Unit,
-    onToggle: () -> Unit,
-    onEdit: () -> Unit
+    manualLabel: String,
+    dailyTimeRangeFormat: String,
+    blockedItemsCountFormat: String,
+    locale: Locale,
+    switchColors: SwitchColors,
+    onClick: (Schedule) -> Unit,
+    onToggle: (Schedule, Boolean) -> Unit,
+    onEdit: (Schedule) -> Unit
 ) {
+    val description = remember(
+        schedule,
+        manualLabel,
+        dailyTimeRangeFormat,
+        blockedItemsCountFormat,
+        locale
+    ) {
+        buildScheduleDescription(
+            schedule = schedule,
+            manualLabel = manualLabel,
+            dailyTimeRangeFormat = dailyTimeRangeFormat,
+            blockedItemsCountFormat = blockedItemsCountFormat,
+            locale = locale
+        )
+    }
     Card(
-        onClick = onClick,
+        onClick = { onClick(schedule) },
         modifier = Modifier
             .fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -422,7 +461,7 @@ private fun ScheduleItem(
                     }
                 }
                 Text(
-                    buildScheduleDescription(schedule),
+                    description,
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -432,7 +471,7 @@ private fun ScheduleItem(
 
             // Delete / Edit icons
             IconButton(
-                onClick = onEdit,
+                onClick = { onEdit(schedule) },
                 modifier = Modifier.size(32.dp)
             ) {
                 Icon(
@@ -445,29 +484,29 @@ private fun ScheduleItem(
 
             Switch(
                 checked = schedule.isEnabled,
-                onCheckedChange = { onToggle() },
-                colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                    checkedTrackColor = IndigoPrimary,
-                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-                )
+                onCheckedChange = { onToggle(schedule, isActive) },
+                colors = switchColors
             )
         }
     }
 }
 
-@Composable
-private fun buildScheduleDescription(schedule: Schedule): String {
+private fun buildScheduleDescription(
+    schedule: Schedule,
+    manualLabel: String,
+    dailyTimeRangeFormat: String,
+    blockedItemsCountFormat: String,
+    locale: Locale
+): String {
     val parts = mutableListOf<String>()
 
     when (schedule.timing.type) {
-        ScheduleTiming.ScheduleType.MANUAL -> parts.add(stringResource(R.string.manual))
+        ScheduleTiming.ScheduleType.MANUAL -> parts.add(manualLabel)
         ScheduleTiming.ScheduleType.DAILY -> {
             schedule.timing.time?.let { start ->
                 schedule.timing.endTime?.let { end ->
                     parts.add(
-                        stringResource(R.string.daily_time_range, start.toString(), end.toString())
+                        String.format(locale, dailyTimeRangeFormat, start.toString(), end.toString())
                     )
                 }
             }
@@ -476,14 +515,14 @@ private fun buildScheduleDescription(schedule: Schedule): String {
             if (schedule.timing.daysOfWeek.isNotEmpty()) {
                 val dayNames =
                     schedule.timing.daysOfWeek.sortedBy { it.value }.joinToString(", ") {
-                        it.getDisplayName(TextStyle.SHORT, Locale.getDefault())
+                        it.getDisplayName(TextStyle.SHORT, locale)
                     }
                 parts.add(dayNames)
             }
         }
     }
     schedule.timing.motionCondition?.let { condition ->
-        parts.add("when ${condition.activity.label.lowercase(Locale.getDefault())}")
+        parts.add("when ${condition.activity.label.lowercase(locale)}")
     }
     schedule.timing.wifiCondition?.let { condition ->
         parts.add("on ${condition.label} Wi-Fi")
@@ -495,7 +534,7 @@ private fun buildScheduleDescription(schedule: Schedule): String {
             val websiteList = schedule.blockedWebsites.take(3).joinToString(", ")
             parts.add("$blockCount blocked ($websiteList)")
         } else {
-            parts.add(stringResource(R.string.blocked_items_count, blockCount))
+            parts.add(String.format(locale, blockedItemsCountFormat, blockCount))
         }
     }
 

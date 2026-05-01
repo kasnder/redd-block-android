@@ -8,7 +8,7 @@ class AssistantViewModel(context: Context) {
     private val appContext = context.applicationContext
     val preferences = AssistantPreferences(appContext)
     private val contextProvider = ContextProvider(appContext, preferences)
-    private val openAIClient = OpenAIClient()
+    private val aiClient = AssistantAiClient()
     private val activityRecognitionManager = ActivityRecognitionManager(appContext)
     private val wifiContextProvider = WifiContextProvider(appContext)
 
@@ -23,7 +23,7 @@ class AssistantViewModel(context: Context) {
 
     fun saveSettings() {
         val key = apiKeyDraft.trim()
-        val model = modelDraft.trim().ifBlank { OpenAIModels.DEFAULT_MODEL }
+        val model = AssistantAiModels.normalize(modelDraft)
         if (key.isNotBlank()) {
             preferences.saveApiKey(key)
         }
@@ -63,12 +63,12 @@ class AssistantViewModel(context: Context) {
         conversationMessages: List<AssistantMessage>
     ): AssistantResult {
         val key = preferences.getApiKey()?.takeIf { it.isNotBlank() }
-            ?: throw IllegalStateException("Add an OpenAI API key first.")
+            ?: throw IllegalStateException("Add a Nebius API key first.")
         val model = preferences.getModel()
         return withContext(Dispatchers.IO) {
             val installedApps = contextProvider.getInstalledApps()
             val prompt = contextProvider.buildPrompt(userMessage, conversationMessages)
-            openAIClient.requestAssistantTurn(key, model, prompt, installedApps)
+            aiClient.requestAssistantTurn(key, model, prompt, installedApps)
         }
     }
 }

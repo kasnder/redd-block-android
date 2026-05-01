@@ -19,8 +19,14 @@ class AssistantPreferences(context: Context) {
         prefs.edit().putString(KEY_MODEL, model).apply()
     }
 
-    fun getModel(): String = prefs.getString(KEY_MODEL, OpenAIModels.DEFAULT_MODEL)
-        ?: OpenAIModels.DEFAULT_MODEL
+    fun getModel(): String {
+        val savedModel = prefs.getString(KEY_MODEL, null)
+        return if (savedModel.isNullOrBlank() || savedModel in LEGACY_DEFAULT_MODELS) {
+            AssistantAiModels.DEFAULT_MODEL
+        } else {
+            AssistantAiModels.normalize(savedModel)
+        }
+    }
 
     fun saveGoals(goals: String) {
         prefs.edit().putString(KEY_GOALS, goals).apply()
@@ -48,8 +54,12 @@ class AssistantPreferences(context: Context) {
 
     companion object {
         private const val PREFS_NAME = "assistant_prefs"
-        private const val KEY_API_KEY = "openai_api_key"
-        private const val KEY_MODEL = "openai_model"
+        private const val KEY_API_KEY = "nebius_api_key"
+        private const val KEY_MODEL = "assistant_model"
+        private val LEGACY_DEFAULT_MODELS = setOf(
+            "gpt-5.5",
+            "bedrock/kimi-k2.5@eu-north-1"
+        )
         private const val KEY_GOALS = "goals"
         private const val KEY_USAGE_SHARING = "usage_sharing"
         private const val KEY_MOTION_SHARING = "motion_sharing"

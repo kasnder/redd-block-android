@@ -7,6 +7,7 @@ import net.kollnig.reddblockandroid.data.ScheduleTiming
 import net.kollnig.reddblockandroid.data.WifiCondition
 import org.json.JSONObject
 import java.time.DayOfWeek
+import java.util.UUID
 
 @Immutable
 data class ScheduleTimingDraft(
@@ -45,7 +46,8 @@ data class AssistantMessage(
     val role: Role,
     val text: String,
     val proposal: ScheduleProposal? = null,
-    val amendment: ScheduleAmendmentProposal? = null
+    val amendment: ScheduleAmendmentProposal? = null,
+    val id: String = UUID.randomUUID().toString()
 ) {
     enum class Role {
         USER,
