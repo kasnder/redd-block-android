@@ -38,6 +38,7 @@ import net.kollnig.reddblockandroid.data.ScheduleTiming
 import net.kollnig.reddblockandroid.data.SavedWifiNetwork
 import net.kollnig.reddblockandroid.data.SavedWifiNetworksStore
 import net.kollnig.reddblockandroid.data.WifiCondition
+import net.kollnig.reddblockandroid.assistant.WifiContextProvider
 import net.kollnig.reddblockandroid.schedule.Schedules
 import net.kollnig.reddblockandroid.ui.theme.*
 import java.time.DayOfWeek
@@ -61,6 +62,8 @@ fun CreateScheduleScreen(
         scheduleId == null || draft.id == scheduleId
     } ?: existingSchedule
     val savedWifiNetworksStore = remember { SavedWifiNetworksStore(context) }
+    val wifiContextProvider = remember { WifiContextProvider(context) }
+    val currentWifi = remember { wifiContextProvider.currentWifi() }
     var savedWifiNetworks by remember { mutableStateOf(savedWifiNetworksStore.getNetworks()) }
 
     var scheduleName by remember { mutableStateOf(initialSchedule?.name ?: "") }
@@ -98,10 +101,10 @@ fun CreateScheduleScreen(
         mutableStateOf(initialSchedule?.timing?.wifiCondition?.label ?: savedWifiNetworks.first().label)
     }
     var wifiSsid by remember {
-        mutableStateOf(initialSchedule?.timing?.wifiCondition?.ssid ?: "")
+        mutableStateOf(initialSchedule?.timing?.wifiCondition?.ssid ?: currentWifi?.ssid.orEmpty())
     }
     var wifiBssid by remember {
-        mutableStateOf(initialSchedule?.timing?.wifiCondition?.bssid ?: "")
+        mutableStateOf(initialSchedule?.timing?.wifiCondition?.bssid ?: currentWifi?.bssid.orEmpty())
     }
 
     var showAppPicker by remember { mutableStateOf(false) }
@@ -626,7 +629,15 @@ fun CreateScheduleScreen(
                             }
                             Switch(
                                 checked = wifiConditionEnabled,
-                                onCheckedChange = { wifiConditionEnabled = it }
+                                onCheckedChange = { enabled ->
+                                    wifiConditionEnabled = enabled
+                                    if (enabled && wifiSsid.isBlank()) {
+                                        currentWifi?.let { wifi ->
+                                            wifiSsid = wifi.ssid
+                                            wifiBssid = wifi.bssid.orEmpty()
+                                        }
+                                    }
+                                }
                             )
                         }
 
@@ -643,6 +654,13 @@ fun CreateScheduleScreen(
                                 onSsidChange = { wifiSsid = it },
                                 bssid = wifiBssid,
                                 onBssidChange = { wifiBssid = it },
+                                currentWifi = currentWifi,
+                                onUseCurrentWifi = {
+                                    currentWifi?.let { wifi ->
+                                        wifiSsid = wifi.ssid
+                                        wifiBssid = wifi.bssid.orEmpty()
+                                    }
+                                },
                                 isValid = isWifiConditionValid()
                             )
                         }
@@ -954,6 +972,8 @@ private fun WifiConditionEditor(
     onSsidChange: (String) -> Unit,
     bssid: String,
     onBssidChange: (String) -> Unit,
+    currentWifi: WifiContextProvider.CurrentWifi?,
+    onUseCurrentWifi: () -> Unit,
     isValid: Boolean
 ) {
     var expanded by remember { mutableStateOf(false) }
@@ -1004,6 +1024,17 @@ private fun WifiConditionEditor(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(10.dp)
         )
+
+        if (currentWifi != null) {
+            OutlinedButton(
+                onClick = onUseCurrentWifi,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(Icons.Rounded.Wifi, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Use current Wi-Fi: ${currentWifi.ssid}", maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+        }
 
         OutlinedTextField(
             value = bssid,
