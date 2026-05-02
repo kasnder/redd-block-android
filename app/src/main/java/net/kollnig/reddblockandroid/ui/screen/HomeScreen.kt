@@ -3,10 +3,10 @@ package net.kollnig.reddblockandroid.ui.screen
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowForward
 import androidx.compose.material.icons.rounded.*
@@ -14,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.stringResource
@@ -46,9 +47,8 @@ fun HomeScreen(
     var isAccessibilityEnabled by remember { mutableStateOf(context.isAccessibilityServiceEnabled()) }
 
     var schedules by remember { mutableStateOf(Schedules.getAll()) }
-    var activeScheduleIds by remember {
-        mutableStateOf(Schedules.getActiveScheduleIds(schedules, context))
-    }
+    // Incremented to force recomposition after schedule state changes
+    var refreshTick by remember { mutableIntStateOf(0) }
 
     val snackbarHostState = remember { SnackbarHostState() }
     val coroutineScope = rememberCoroutineScope()
@@ -59,16 +59,6 @@ fun HomeScreen(
     val exportErrorMsg = stringResource(R.string.export_error)
     val importSuccessMsg = stringResource(R.string.import_success)
     val importErrorMsg = stringResource(R.string.import_error)
-    val manualLabel = stringResource(R.string.manual)
-    val dailyTimeRangeFormat = stringResource(R.string.daily_time_range)
-    val blockedItemsCountFormat = stringResource(R.string.blocked_items_count)
-    val currentLocale = Locale.getDefault()
-    val switchColors = SwitchDefaults.colors(
-        checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-        checkedTrackColor = IndigoPrimary,
-        uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
-    )
 
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
@@ -114,36 +104,14 @@ fun HomeScreen(
 
     fun refreshSchedules() {
         val now = System.currentTimeMillis()
-        var latestSchedules = Schedules.getAll()
-        for (schedule in latestSchedules) {
+        for (schedule in Schedules.getAll()) {
             val until = schedule.disabledUntil
             if (!schedule.isEnabled && until != null && until <= now) {
                 Schedules.reEnableSchedule(context, schedule.id)
             }
         }
-        latestSchedules = Schedules.getAll()
-        schedules = latestSchedules
-        activeScheduleIds = Schedules.getActiveScheduleIds(latestSchedules, context)
-    }
-
-    val handleEditSchedule = remember(onEditSchedule) {
-        { schedule: Schedule ->
-            // Always allow editing — strictness is checked at save time
-            onEditSchedule(schedule)
-        }
-    }
-    val handleToggleSchedule = remember(context, onFrictionGateRequired) {
-        { schedule: Schedule, isActive: Boolean ->
-            if (isActive) {
-                onFrictionGateRequired(schedule) {
-                    Schedules.toggle(schedule.id, context)
-                    refreshSchedules()
-                }
-            } else {
-                Schedules.toggle(schedule.id, context)
-                refreshSchedules()
-            }
-        }
+        schedules = Schedules.getAll()
+        refreshTick++
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -162,202 +130,216 @@ fun HomeScreen(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { innerPadding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(innerPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Spacer(Modifier.height(16.dp))
+
             // ── Status card ──
             if (!isAccessibilityEnabled) {
-                item {
-                    Card(
-                        onClick = { showAccessibilityDialog = true },
+                Card(
+                    onClick = { showAccessibilityDialog = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(4.dp, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+                ) {
+                    Row(
                         modifier = Modifier
-                            .fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        Surface(
+                            modifier = Modifier.size(40.dp),
+                            shape = CircleShape,
+                            color = SoftRed.copy(alpha = 0.15f)
                         ) {
-                            Surface(
-                                modifier = Modifier.size(40.dp),
-                                shape = CircleShape,
-                                color = SoftRed.copy(alpha = 0.15f)
-                            ) {
-                                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                                    Icon(
-                                        Icons.Rounded.Warning,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(20.dp),
-                                        tint = SoftRed
-                                    )
-                                }
-                            }
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    stringResource(R.string.setup_required),
-                                    style = MaterialTheme.typography.titleSmall,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface
-                                )
-                                Text(
-                                    stringResource(R.string.setup_required_desc),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Rounded.Warning,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp),
+                                    tint = SoftRed
                                 )
                             }
-                            Icon(
-                                Icons.AutoMirrored.Rounded.ArrowForward,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.setup_required),
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                stringResource(R.string.setup_required_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                    }
-                }
-            }
-
-            // ── YOUR BLOCKLISTS section header ──
-            item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        stringResource(R.string.your_blocklists),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        letterSpacing = 1.sp
-                    )
-                    IconButton(
-                        onClick = onCreateSchedule,
-                        modifier = Modifier.size(28.dp)
-                    ) {
                         Icon(
-                            Icons.Rounded.Add,
-                            contentDescription = stringResource(R.string.create_schedule),
-                            modifier = Modifier.size(20.dp),
+                            Icons.AutoMirrored.Rounded.ArrowForward,
+                            contentDescription = null,
+                            modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
+                }
+                Spacer(Modifier.height(16.dp))
+            }
+
+            // ── YOUR BLOCKLISTS section header ──
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    stringResource(R.string.your_blocklists),
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    letterSpacing = 1.sp
+                )
+                IconButton(
+                    onClick = onCreateSchedule,
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Icon(
+                        Icons.Rounded.Add,
+                        contentDescription = stringResource(R.string.create_schedule),
+                        modifier = Modifier.size(20.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
 
             // ── Schedule list (inline) ──
             if (schedules.isEmpty()) {
-                item {
-                    Card(
-                        onClick = onCreateSchedule,
+                Card(
+                    onClick = onCreateSchedule,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .shadow(2.dp, RoundedCornerShape(16.dp)),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
                         modifier = Modifier
-                            .fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Icon(
-                                Icons.Rounded.EventBusy,
-                                contentDescription = null,
-                                modifier = Modifier.size(48.dp),
-                                tint = MaterialTheme.colorScheme.outline
-                            )
-                            Text(
-                                stringResource(R.string.no_schedules),
-                                style = MaterialTheme.typography.titleSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                stringResource(R.string.no_schedules_desc),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.outline
-                            )
-                        }
+                        Icon(
+                            Icons.Rounded.EventBusy,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.outline
+                        )
+                        Text(
+                            stringResource(R.string.no_schedules),
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            stringResource(R.string.no_schedules_desc),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
                     }
                 }
             } else {
-                items(schedules, key = { it.id }) { schedule ->
-                    val isActive = activeScheduleIds.contains(schedule.id)
+                schedules.forEach { schedule ->
+                    // refreshTick is read here to trigger recomposition
+                    @Suppress("UNUSED_EXPRESSION") refreshTick
+                    val isActive = Schedules.isScheduleActive(schedule.id, context)
                     ScheduleItem(
                         schedule = schedule,
                         isActive = isActive,
-                        manualLabel = manualLabel,
-                        dailyTimeRangeFormat = dailyTimeRangeFormat,
-                        blockedItemsCountFormat = blockedItemsCountFormat,
-                        locale = currentLocale,
-                        switchColors = switchColors,
-                        onClick = handleEditSchedule,
-                        onToggle = handleToggleSchedule,
-                        onEdit = handleEditSchedule
+                        onClick = {
+                            // Always allow editing — strictness is checked at save time
+                            onEditSchedule(schedule)
+                        },
+                        onToggle = {
+                            if (isActive) {
+                                onFrictionGateRequired(schedule) {
+                                    Schedules.toggle(schedule.id, context)
+                                    refreshSchedules()
+                                }
+                            } else {
+                                Schedules.toggle(schedule.id, context)
+                                refreshSchedules()
+                            }
+                        },
+                        onEdit = {
+                            // Always allow editing — strictness is checked at save time
+                            onEditSchedule(schedule)
+                        }
                     )
+                    Spacer(Modifier.height(10.dp))
                 }
             }
 
+            Spacer(Modifier.height(16.dp))
+
             // ── Footer ──
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Spacer(Modifier.size(24.dp)) // To keep text centered (same width as icon)
-                    Text(
-                        stringResource(R.string.footer_text),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
+            Spacer(Modifier.weight(1f))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Spacer(Modifier.size(24.dp)) // To keep text centered (same width as icon)
+                Text(
+                    stringResource(R.string.footer_text),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                Box {
+                    Icon(
+                        Icons.Rounded.Settings,
+                        contentDescription = "Settings",
+                        modifier = Modifier
+                            .size(24.dp)
+                            .clickable { isMenuExpanded = true },
+                        tint = MaterialTheme.colorScheme.outline
                     )
-                    Box {
-                        Icon(
-                            Icons.Rounded.Settings,
-                            contentDescription = "Settings",
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clickable { isMenuExpanded = true },
-                            tint = MaterialTheme.colorScheme.outline
+                    DropdownMenu(
+                        expanded = isMenuExpanded,
+                        onDismissRequest = { isMenuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.export_rules)) },
+                            onClick = {
+                                isMenuExpanded = false
+                                exportLauncher.launch("reddblock_rules.json")
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Rounded.Upload, contentDescription = null)
+                            }
                         )
-                        DropdownMenu(
-                            expanded = isMenuExpanded,
-                            onDismissRequest = { isMenuExpanded = false }
-                        ) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.export_rules)) },
-                                onClick = {
-                                    isMenuExpanded = false
-                                    exportLauncher.launch("reddblock_rules.json")
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Rounded.Upload, contentDescription = null)
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.import_rules)) },
-                                onClick = {
-                                    isMenuExpanded = false
-                                    importLauncher.launch(arrayOf("application/json"))
-                                },
-                                leadingIcon = {
-                                    Icon(Icons.Rounded.Download, contentDescription = null)
-                                }
-                            )
-                        }
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.import_rules)) },
+                            onClick = {
+                                isMenuExpanded = false
+                                importLauncher.launch(arrayOf("application/json"))
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Rounded.Download, contentDescription = null)
+                            }
+                        )
                     }
                 }
             }
@@ -382,37 +364,17 @@ fun HomeScreen(
 private fun ScheduleItem(
     schedule: Schedule,
     isActive: Boolean,
-    manualLabel: String,
-    dailyTimeRangeFormat: String,
-    blockedItemsCountFormat: String,
-    locale: Locale,
-    switchColors: SwitchColors,
-    onClick: (Schedule) -> Unit,
-    onToggle: (Schedule, Boolean) -> Unit,
-    onEdit: (Schedule) -> Unit
+    onClick: () -> Unit,
+    onToggle: () -> Unit,
+    onEdit: () -> Unit
 ) {
-    val description = remember(
-        schedule,
-        manualLabel,
-        dailyTimeRangeFormat,
-        blockedItemsCountFormat,
-        locale
-    ) {
-        buildScheduleDescription(
-            schedule = schedule,
-            manualLabel = manualLabel,
-            dailyTimeRangeFormat = dailyTimeRangeFormat,
-            blockedItemsCountFormat = blockedItemsCountFormat,
-            locale = locale
-        )
-    }
     Card(
-        onClick = { onClick(schedule) },
+        onClick = onClick,
         modifier = Modifier
-            .fillMaxWidth(),
+            .fillMaxWidth()
+            .shadow(2.dp, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         border = if (isActive) BorderStroke(1.5.dp, IndigoPrimary.copy(alpha = 0.4f)) else null
     ) {
         Row(
@@ -461,7 +423,7 @@ private fun ScheduleItem(
                     }
                 }
                 Text(
-                    description,
+                    buildScheduleDescription(schedule),
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -471,7 +433,7 @@ private fun ScheduleItem(
 
             // Delete / Edit icons
             IconButton(
-                onClick = { onEdit(schedule) },
+                onClick = onEdit,
                 modifier = Modifier.size(32.dp)
             ) {
                 Icon(
@@ -484,29 +446,29 @@ private fun ScheduleItem(
 
             Switch(
                 checked = schedule.isEnabled,
-                onCheckedChange = { onToggle(schedule, isActive) },
-                colors = switchColors
+                onCheckedChange = { onToggle() },
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
+                    checkedTrackColor = IndigoPrimary,
+                    uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
+                )
             )
         }
     }
 }
 
-private fun buildScheduleDescription(
-    schedule: Schedule,
-    manualLabel: String,
-    dailyTimeRangeFormat: String,
-    blockedItemsCountFormat: String,
-    locale: Locale
-): String {
+@Composable
+private fun buildScheduleDescription(schedule: Schedule): String {
     val parts = mutableListOf<String>()
 
     when (schedule.timing.type) {
-        ScheduleTiming.ScheduleType.MANUAL -> parts.add(manualLabel)
+        ScheduleTiming.ScheduleType.MANUAL -> parts.add(stringResource(R.string.manual))
         ScheduleTiming.ScheduleType.DAILY -> {
             schedule.timing.time?.let { start ->
                 schedule.timing.endTime?.let { end ->
                     parts.add(
-                        String.format(locale, dailyTimeRangeFormat, start.toString(), end.toString())
+                        stringResource(R.string.daily_time_range, start.toString(), end.toString())
                     )
                 }
             }
@@ -515,14 +477,14 @@ private fun buildScheduleDescription(
             if (schedule.timing.daysOfWeek.isNotEmpty()) {
                 val dayNames =
                     schedule.timing.daysOfWeek.sortedBy { it.value }.joinToString(", ") {
-                        it.getDisplayName(TextStyle.SHORT, locale)
+                        it.getDisplayName(TextStyle.SHORT, Locale.getDefault())
                     }
                 parts.add(dayNames)
             }
         }
     }
     schedule.timing.motionCondition?.let { condition ->
-        parts.add("when ${condition.activity.label.lowercase(locale)}")
+        parts.add("when ${condition.activity.label.lowercase(Locale.getDefault())}")
     }
     schedule.timing.wifiCondition?.let { condition ->
         parts.add("on ${condition.label} Wi-Fi")
@@ -534,7 +496,7 @@ private fun buildScheduleDescription(
             val websiteList = schedule.blockedWebsites.take(3).joinToString(", ")
             parts.add("$blockCount blocked ($websiteList)")
         } else {
-            parts.add(String.format(locale, blockedItemsCountFormat, blockCount))
+            parts.add(stringResource(R.string.blocked_items_count, blockCount))
         }
     }
 

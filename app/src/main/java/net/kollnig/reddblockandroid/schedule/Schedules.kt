@@ -3,6 +3,7 @@ package net.kollnig.reddblockandroid.schedule
 import android.content.Context
 import android.util.Log
 import androidx.core.content.edit
+import net.kollnig.reddblockandroid.assistant.ActivityRecognitionManager
 import net.kollnig.reddblockandroid.data.MotionCondition
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
@@ -29,11 +30,6 @@ object Schedules {
     private const val SCHEDULES_KEY = "routines" // keep legacy key for data compat
     private const val ACTIVE_SESSIONS_KEY = "active_routine_sessions" // keep legacy key
 
-    private var cachedSchedulesJson: String? = null
-    private var cachedSchedules: List<Schedule> = emptyList()
-    private var cachedSessionsJson: String? = null
-    private var cachedSessions: List<ActiveSession> = emptyList()
-
     data class ActiveSession(
         val scheduleId: String,
         val startTime: Long,
@@ -43,18 +39,11 @@ object Schedules {
 
     fun getAll(): List<Schedule> {
         val json = prefs.getString(SCHEDULES_KEY, "[]") ?: "[]"
-        if (json == cachedSchedulesJson) return cachedSchedules
         return try {
             JSONArray(json).let { arr ->
                 (0 until arr.length()).mapNotNull { parseSchedule(arr.getJSONObject(it)) }
-                    .also { schedules ->
-                        cachedSchedulesJson = json
-                        cachedSchedules = schedules
-                    }
             }
         } catch (_: Exception) {
-            cachedSchedulesJson = json
-            cachedSchedules = emptyList()
             emptyList()
         }
     }
@@ -102,6 +91,7 @@ object Schedules {
         else schedules.add(schedule)
 
         saveAll(schedules)
+        syncActivityRecognitionUpdates(context)
 
         // If this is a manual schedule with an active session, update its blocked lists
         val sessions = getActiveSessions().toMutableList()
@@ -119,6 +109,7 @@ object Schedules {
         stopSession(context, id)
         val schedules = getAll().filterNot { it.id == id }
         saveAll(schedules)
+        syncActivityRecognitionUpdates(context)
     }
 
     /**
@@ -143,6 +134,7 @@ object Schedules {
             val index = schedules.indexOfFirst { it.id == id }
             if (index >= 0) schedules[index] = updated
             saveAll(schedules)
+            syncActivityRecognitionUpdates(context)
 
             // Stop manual session if one exists and cancel any pending re-enable
             stopSession(context, id)
@@ -155,6 +147,7 @@ object Schedules {
             val index = schedules.indexOfFirst { it.id == id }
             if (index >= 0) schedules[index] = updated
             saveAll(schedules)
+            syncActivityRecognitionUpdates(context)
 
             // Cancel any pending auto re-enable — we've enabled it now
             ScheduleManager.cancelSchedule(context, id)
@@ -193,6 +186,7 @@ object Schedules {
         val index = schedules.indexOfFirst { it.id == id }
         if (index >= 0) schedules[index] = updated
         saveAll(schedules)
+        syncActivityRecognitionUpdates(context)
 
         stopSession(context, id)
         ScheduleManager.cancelSchedule(context, id)
@@ -212,6 +206,7 @@ object Schedules {
         val index = schedules.indexOfFirst { it.id == scheduleId }
         if (index >= 0) schedules[index] = updated
         saveAll(schedules)
+        syncActivityRecognitionUpdates(context)
 
         // Only manual schedules need an explicit session
         if (updated.timing.type == ScheduleTiming.ScheduleType.MANUAL) {
@@ -222,10 +217,8 @@ object Schedules {
     private fun saveAll(schedules: List<Schedule>) {
         val json = JSONArray().apply {
             schedules.forEach { put(scheduleToJson(it)) }
-        }.toString()
-        cachedSchedulesJson = json
-        cachedSchedules = schedules.toList()
-        prefs.edit { putString(SCHEDULES_KEY, json) }
+        }
+        prefs.edit { putString(SCHEDULES_KEY, json.toString()) }
     }
 
     fun startSession(context: Context, schedule: Schedule) {
@@ -259,7 +252,6 @@ object Schedules {
 
     fun getActiveSessions(): List<ActiveSession> {
         val json = prefs.getString(ACTIVE_SESSIONS_KEY, "[]") ?: "[]"
-        if (json == cachedSessionsJson) return cachedSessions
         return try {
             JSONArray(json).let { arr ->
                 (0 until arr.length()).mapNotNull {
@@ -289,14 +281,9 @@ object Schedules {
                     } catch (_: Exception) {
                         null
                     }
-                }.also { sessions ->
-                    cachedSessionsJson = json
-                    cachedSessions = sessions
                 }
             }
         } catch (_: Exception) {
-            cachedSessionsJson = json
-            cachedSessions = emptyList()
             emptyList()
         }
     }
@@ -312,10 +299,8 @@ object Schedules {
                     put("blockedWebsites", JSONArray(session.blockedWebsites.toList()))
                 })
             }
-        }.toString()
-        cachedSessionsJson = json
-        cachedSessions = sessions.toList()
-        prefs.edit { putString(ACTIVE_SESSIONS_KEY, json) }
+        }
+        prefs.edit { putString(ACTIVE_SESSIONS_KEY, json.toString()) }
     }
 
     /**
@@ -402,25 +387,6 @@ object Schedules {
         }
     }
 
-    fun getActiveScheduleIds(
-        schedules: List<Schedule> = getAll(),
-        context: Context? = null
-    ): Set<String> {
-        val activeSessionIds = getActiveSessions().mapTo(mutableSetOf()) { it.scheduleId }
-
-        return schedules.asSequence()
-            .filter { it.isEnabled }
-            .filter { schedule ->
-                when (schedule.timing.type) {
-                    ScheduleTiming.ScheduleType.MANUAL -> activeSessionIds.contains(schedule.id)
-                    ScheduleTiming.ScheduleType.DAILY,
-                    ScheduleTiming.ScheduleType.WEEKLY -> ScheduleManager.isScheduleActiveNow(schedule, context)
-                }
-            }
-            .map { it.id }
-            .toSet()
-    }
-
     /** Well-known social media app package names. */
     val SOCIAL_MEDIA_PACKAGES = listOf(
         "com.instagram.android",
@@ -479,6 +445,19 @@ object Schedules {
             autoReenableMinutes = 10
         )
         saveAll(listOf(schedule))
+        syncActivityRecognitionUpdates(context)
+    }
+
+    private fun syncActivityRecognitionUpdates(context: Context) {
+        val needsMotionUpdates = getAll().any { schedule ->
+            schedule.isEnabled && schedule.timing.motionCondition != null
+        }
+        val manager = ActivityRecognitionManager(context)
+        if (needsMotionUpdates) {
+            manager.startUpdates()
+        } else {
+            manager.stopUpdates()
+        }
     }
 
     private fun parseSchedule(json: JSONObject): Schedule? = try {

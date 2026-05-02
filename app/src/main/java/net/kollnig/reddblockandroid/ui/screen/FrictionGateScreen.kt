@@ -8,7 +8,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
-import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -31,7 +30,6 @@ import androidx.compose.ui.unit.sp
 import net.kollnig.reddblockandroid.BuildConfig
 import net.kollnig.reddblockandroid.R
 import net.kollnig.reddblockandroid.data.CHINESE_VOCABULARY
-import net.kollnig.reddblockandroid.data.ChineseWord
 import net.kollnig.reddblockandroid.ui.theme.*
 import net.kollnig.reddblockandroid.util.ChineseTypingStats
 
@@ -54,21 +52,6 @@ private val WORD_LIST = listOf(
     "impact", "jungle", "knight", "linear", "method", "normal", "obtain",
     "parent", "random", "simple", "travel", "update", "vision", "weekly"
 )
-
-private fun buildChineseQuizOptions(
-    answer: ChineseWord,
-    hskLevel: Int,
-): List<ChineseWord> {
-    val distractors = CHINESE_VOCABULARY
-        .filter { it.hskLevel <= hskLevel }
-        .filter { it.pinyinNormalized != answer.pinyinNormalized }
-        .distinctBy { it.pinyinNormalized }
-        .shuffled()
-        .take(3)
-        .toList()
-
-    return (distractors + answer).shuffled()
-}
 
 
 /**
@@ -122,18 +105,11 @@ fun FrictionGateScreen(
     var currentWordIndex by remember { mutableIntStateOf(0) }
     var userInput by remember { mutableStateOf("") }
     var isError by remember { mutableStateOf(false) }
-    var selectedWrongPinyin by remember { mutableStateOf(emptySet<String>()) }
+    var pinyinManuallyRevealed by remember { mutableStateOf(false) }
     var wordStartMillis by remember { mutableStateOf(System.currentTimeMillis()) }
     var weeklyStats by remember { mutableStateOf(ChineseTypingStats.getWeeklyStats()) }
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
-    val chineseQuizOptions = if (useChineseMode && chineseWords.isNotEmpty()) {
-        remember(currentWordIndex, chineseWords) {
-            buildChineseQuizOptions(chineseWords[currentWordIndex], chineseHskLevel)
-        }
-    } else {
-        emptyList()
-    }
 
     // Build the challenge phrase (all remaining words)
     val challengePhrase = remember {
@@ -141,46 +117,39 @@ fun FrictionGateScreen(
         else words.joinToString(" ")
     }
 
-    LaunchedEffect(useChineseMode) {
-        if (!useChineseMode) {
-            focusRequester.requestFocus()
-            keyboardController?.show()
-        }
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        keyboardController?.show()
     }
 
-    fun advanceWord() {
-        if (useChineseMode) {
-            ChineseTypingStats.recordWord(System.currentTimeMillis() - wordStartMillis)
-            weeklyStats = ChineseTypingStats.getWeeklyStats()
-        }
-        if (currentWordIndex >= totalCount - 1) {
-            onPassed()
+    fun normalizeUserPinyin(input: String): String =
+        java.text.Normalizer.normalize(input.trim().lowercase(), java.text.Normalizer.Form.NFD)
+            .replace(Regex("[\\p{InCombiningDiacriticalMarks}]"), "")
+            .replace(Regex("[^a-z]"), "")
+
+    fun checkWord() {
+        val isCorrect = if (useChineseMode) {
+            val expected = chineseWords[currentWordIndex].pinyinNormalized.replace(Regex("[^a-z]"), "")
+            normalizeUserPinyin(userInput) == expected
         } else {
-            currentWordIndex++
-            userInput = ""
-            selectedWrongPinyin = emptySet()
-            wordStartMillis = System.currentTimeMillis()
+            userInput.trim().equals(words[currentWordIndex], ignoreCase = true)
         }
-    }
-
-    fun checkTypedWord() {
-        val isCorrect = userInput.trim().equals(words[currentWordIndex], ignoreCase = true)
         if (isCorrect) {
             isError = false
-            advanceWord()
+            if (useChineseMode) {
+                ChineseTypingStats.recordWord(System.currentTimeMillis() - wordStartMillis)
+                weeklyStats = ChineseTypingStats.getWeeklyStats()
+            }
+            if (currentWordIndex >= totalCount - 1) {
+                onPassed()
+            } else {
+                currentWordIndex++
+                userInput = ""
+                pinyinManuallyRevealed = false
+                wordStartMillis = System.currentTimeMillis()
+            }
         } else {
             isError = true
-        }
-    }
-
-    fun chooseChineseAnswer(option: ChineseWord) {
-        val answer = chineseWords[currentWordIndex]
-        if (option.pinyinNormalized == answer.pinyinNormalized) {
-            isError = false
-            advanceWord()
-        } else {
-            isError = true
-            selectedWrongPinyin = selectedWrongPinyin + option.pinyinNormalized
         }
     }
 
@@ -330,23 +299,36 @@ fun FrictionGateScreen(
                                     verticalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
                                     Text(
-                                        cw.character,
+                                        cw.meaning,
                                         style = MaterialTheme.typography.displaySmall,
                                         fontWeight = FontWeight.Bold,
                                         textAlign = TextAlign.Center,
                                         color = IndigoPrimary
                                     )
                                     Text(
-                                        cw.meaning,
+                                        cw.character,
                                         style = MaterialTheme.typography.bodyMedium,
                                         textAlign = TextAlign.Center,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
+                                    if (isError || pinyinManuallyRevealed) {
+                                        Text(
+                                            cw.pinyin,
+                                            style = MaterialTheme.typography.titleMedium,
+                                            fontWeight = FontWeight.SemiBold,
+                                            textAlign = TextAlign.Center,
+                                            color = IndigoPrimary
+                                        )
+                                    } else {
+                                        TextButton(onClick = { pinyinManuallyRevealed = true }) {
+                                            Text(stringResource(R.string.friction_gate_reveal_pinyin))
+                                        }
+                                    }
                                     IconButton(onClick = {
                                         tts?.speak(cw.character, TextToSpeech.QUEUE_FLUSH, null, null)
                                     }) {
                                         Icon(
-                                            Icons.AutoMirrored.Rounded.VolumeUp,
+                                            Icons.Rounded.VolumeUp,
                                             contentDescription = "Listen",
                                             tint = IndigoPrimary
                                         )
@@ -366,76 +348,38 @@ fun FrictionGateScreen(
                             }
                         }
 
-                        if (useChineseMode) {
-                            Text(
-                                text = stringResource(R.string.friction_gate_quiz_prompt),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (isError) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                chineseQuizOptions.forEach { option ->
-                                    val selectedWrong = option.pinyinNormalized in selectedWrongPinyin
-                                    OutlinedButton(
-                                        onClick = { chooseChineseAnswer(option) },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .heightIn(min = 48.dp),
-                                        shape = RoundedCornerShape(10.dp),
-                                        enabled = !selectedWrong,
-                                        colors = ButtonDefaults.outlinedButtonColors(
-                                            contentColor = if (selectedWrong) {
-                                                MaterialTheme.colorScheme.error
-                                            } else {
-                                                MaterialTheme.colorScheme.onSurface
-                                            },
-                                            disabledContentColor = MaterialTheme.colorScheme.error
-                                        )
-                                    ) {
-                                        Text(
-                                            option.pinyin,
-                                            fontWeight = FontWeight.SemiBold,
-                                            textAlign = TextAlign.Center
-                                        )
-                                    }
-                                }
-                            }
-                        } else {
-                            // Input field
-                            OutlinedTextField(
-                                value = userInput,
-                                onValueChange = {
-                                    userInput = it
-                                    isError = false
-                                },
-                                placeholder = {
-                                    Text(
-                                        stringResource(R.string.type_here_hint),
-                                        color = TextHint
-                                    )
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .focusRequester(focusRequester),
-                                shape = RoundedCornerShape(10.dp),
-                                singleLine = true,
-                                isError = isError,
-                                keyboardOptions = KeyboardOptions(
-                                    imeAction = ImeAction.Done,
-                                    autoCorrectEnabled = false,
-                                    keyboardType = KeyboardType.Password
-                                ),
-                                keyboardActions = KeyboardActions(onDone = { checkTypedWord() }),
-                                colors = OutlinedTextFieldDefaults.colors(
-                                    unfocusedBorderColor = MaterialTheme.colorScheme.outline,
-                                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                        // Input field
+                        OutlinedTextField(
+                            value = userInput,
+                            onValueChange = {
+                                userInput = it
+                                isError = false
+                            },
+                            placeholder = {
+                                Text(
+                                    if (useChineseMode) stringResource(R.string.friction_gate_pinyin_hint)
+                                    else stringResource(R.string.type_here_hint),
+                                    color = TextHint
                                 )
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(focusRequester),
+                            shape = RoundedCornerShape(10.dp),
+                            singleLine = true,
+                            isError = isError,
+                            keyboardOptions = KeyboardOptions(
+                                imeAction = ImeAction.Done,
+                                autoCorrectEnabled = false,
+                                keyboardType = KeyboardType.Password
+                            ),
+                            keyboardActions = KeyboardActions(onDone = { checkWord() }),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow
                             )
-                        }
+                        )
 
                         // Buttons row
                         Row(
@@ -456,23 +400,21 @@ fun FrictionGateScreen(
                                 )
                             }
 
-                            if (!useChineseMode) {
-                                Button(
-                                    onClick = { checkTypedWord() },
-                                    modifier = Modifier.weight(1f).height(48.dp),
-                                    shape = RoundedCornerShape(10.dp),
-                                    enabled = userInput.isNotBlank(),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary,
-                                        contentColor = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                ) {
-                                    Text(
-                                        if (currentWordIndex >= totalCount - 1) stringResource(R.string.override_button)
-                                        else stringResource(R.string.friction_gate_next),
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                            Button(
+                                onClick = { checkWord() },
+                                modifier = Modifier.weight(1f).height(48.dp),
+                                shape = RoundedCornerShape(10.dp),
+                                enabled = userInput.isNotBlank(),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.primary,
+                                    contentColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            ) {
+                                Text(
+                                    if (currentWordIndex >= totalCount - 1) stringResource(R.string.override_button)
+                                    else stringResource(R.string.friction_gate_next),
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }

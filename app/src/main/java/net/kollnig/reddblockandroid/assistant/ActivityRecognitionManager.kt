@@ -78,4 +78,3 @@ class ActivityRecognitionManager(context: Context) {
         private const val STALE_AFTER_MS = 30 * 60_000L
     }
 }
-

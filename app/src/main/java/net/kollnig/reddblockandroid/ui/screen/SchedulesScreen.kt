@@ -1,5 +1,6 @@
 package net.kollnig.reddblockandroid.ui.screen
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -40,22 +42,18 @@ fun SchedulesScreen(
 ) {
     val context = LocalContext.current
     var schedules by remember { mutableStateOf(Schedules.getAll()) }
-    var activeScheduleIds by remember {
-        mutableStateOf(Schedules.getActiveScheduleIds(schedules, context))
-    }
+    var refreshTick by remember { mutableIntStateOf(0) }
 
     fun refreshSchedules() {
         val now = System.currentTimeMillis()
-        var latestSchedules = Schedules.getAll()
-        for (schedule in latestSchedules) {
+        for (schedule in Schedules.getAll()) {
             val until = schedule.disabledUntil
             if (!schedule.isEnabled && until != null && until <= now) {
                 Schedules.reEnableSchedule(context, schedule.id)
             }
         }
-        latestSchedules = Schedules.getAll()
-        schedules = latestSchedules
-        activeScheduleIds = Schedules.getActiveScheduleIds(latestSchedules, context)
+        schedules = Schedules.getAll()
+        refreshTick++
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -147,7 +145,8 @@ fun SchedulesScreen(
                     )
                 }
                 items(schedules, key = { it.id }) { schedule ->
-                    val isActive = activeScheduleIds.contains(schedule.id)
+                    @Suppress("UNUSED_EXPRESSION") refreshTick
+                    val isActive = Schedules.isScheduleActive(schedule.id, context)
                     ScheduleItem(
                             schedule = schedule,
                             isActive = isActive,
@@ -185,13 +184,23 @@ private fun ScheduleItem(
         onToggle: () -> Unit,
         onEdit: () -> Unit
 ) {
+    val containerColor by
+            animateColorAsState(
+                    targetValue =
+                            if (isActive) MaterialTheme.colorScheme.surface
+                            else MaterialTheme.colorScheme.surface,
+                    label = "containerColor"
+            )
+
+    val borderColor = if (isActive) IndigoPrimary.copy(alpha = 0.3f) else MaterialTheme.colorScheme.outlineVariant
+
     Card(
             onClick = onClick,
             modifier = Modifier
-                .fillMaxWidth(),
+                .fillMaxWidth()
+                .shadow(2.dp, RoundedCornerShape(16.dp)),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            colors = CardDefaults.cardColors(containerColor = containerColor),
             border = if (isActive) BorderStroke(1.5.dp, IndigoPrimary.copy(alpha = 0.4f)) else null
     ) {
         Row(

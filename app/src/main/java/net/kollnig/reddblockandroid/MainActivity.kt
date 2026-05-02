@@ -21,9 +21,9 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import net.kollnig.reddblockandroid.assistant.ScheduleAmendmentProposal
 import net.kollnig.reddblockandroid.assistant.ScheduleProposal
 import net.kollnig.reddblockandroid.data.Schedule
+import net.kollnig.reddblockandroid.data.ScheduleTiming
 import net.kollnig.reddblockandroid.ui.screen.CreateScheduleScreen
 import net.kollnig.reddblockandroid.ui.screen.AssistantScreen
 import net.kollnig.reddblockandroid.ui.screen.FrictionGateScreen
@@ -171,7 +171,6 @@ fun AppNavigation() {
                     }
                 )
             }
-
         }
     }
 }
@@ -180,8 +179,8 @@ private fun ScheduleProposal.toDraftSchedule(): Schedule {
     return Schedule(
         id = UUID.randomUUID().toString(),
         name = name,
-        isEnabled = timing.type != net.kollnig.reddblockandroid.data.ScheduleTiming.ScheduleType.MANUAL,
-        timing = net.kollnig.reddblockandroid.data.ScheduleTiming(
+        isEnabled = timing.type != ScheduleTiming.ScheduleType.MANUAL,
+        timing = ScheduleTiming(
             type = timing.type,
             timeHour = timing.timeHour,
             timeMinute = timing.timeMinute,

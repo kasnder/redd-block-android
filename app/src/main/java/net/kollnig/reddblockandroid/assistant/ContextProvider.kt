@@ -50,6 +50,9 @@ class ContextProvider(context: Context) {
     }
 
     fun buildPrompt(userProblem: String, goals: String, options: PromptOptions): String {
+        if (options.includeMotionContext && activityRecognitionManager.hasPermission()) {
+            activityRecognitionManager.startUpdates()
+        }
         val context = buildContext(goals)
         val selectedApps = linkedMapOf<String, InstalledAppSummary>()
         if (options.includeTopUsedApps) {

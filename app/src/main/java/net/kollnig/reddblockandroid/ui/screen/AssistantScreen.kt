@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
+import net.kollnig.reddblockandroid.assistant.ActivityRecognitionManager
 import net.kollnig.reddblockandroid.assistant.AssistantImportParser
 import net.kollnig.reddblockandroid.assistant.ContextProvider
 import net.kollnig.reddblockandroid.assistant.ImportedAssistantAction
@@ -46,6 +47,7 @@ fun AssistantScreen(
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val contextProvider = remember { ContextProvider(context) }
+    val activityRecognitionManager = remember { ActivityRecognitionManager(context) }
     val wifiContextProvider = remember { WifiContextProvider(context) }
     val screenPrefs = remember {
         context.getSharedPreferences("assistant_prompt_flow", Context.MODE_PRIVATE)
@@ -88,6 +90,7 @@ fun AssistantScreen(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         options = options.copy(includeMotionContext = granted)
+        if (granted) activityRecognitionManager.startUpdates()
         if (!granted) scope.launch { snackbarHostState.showSnackbar("Motion permission was not granted.") }
     }
     val wifiPermissionLauncher = rememberLauncherForActivityResult(
@@ -368,6 +371,7 @@ fun AssistantScreen(
                                     options = options.copy(includeMotionContext = false)
                                 } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || context.checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
                                     options = options.copy(includeMotionContext = true)
+                                    activityRecognitionManager.startUpdates()
                                 } else {
                                     motionPermissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
                                 }

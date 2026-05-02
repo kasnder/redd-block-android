@@ -34,4 +34,3 @@ class ActivityRecognitionReceiver : BroadcastReceiver() {
         private const val MIN_CONFIDENCE = 50
     }
 }
-

@@ -6,7 +6,6 @@ import android.content.Intent
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import net.kollnig.reddblockandroid.UnlockActivity
-import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.schedule.Schedules
 
 import net.kollnig.reddblockandroid.util.isPrefsInitialized
@@ -23,12 +22,6 @@ class BlockerService : AccessibilityService() {
     private var lastBlockedPkg: String? = null
     private var lastBlockedTime: Long = 0
     private val APP_BLOCK_THROTTLE_MS = 2000L
-    private var lastAppCheckPkg: String? = null
-    private var lastAppCheckTime: Long = 0
-    private var lastAppCheckSchedule: Schedule? = null
-    private val APP_CHECK_CACHE_MS = 500L
-    private val appLabelCache = mutableMapOf<String, String>()
-    private val skipPackageCache = mutableMapOf<String, Boolean>()
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -75,17 +68,9 @@ class BlockerService : AccessibilityService() {
         // Check app blocking
         if (shouldSkipPackage(pkg)) return
 
-        val now = System.currentTimeMillis()
-        val blockingSchedule = if (pkg == lastAppCheckPkg && now - lastAppCheckTime < APP_CHECK_CACHE_MS) {
-            lastAppCheckSchedule
-        } else {
-            Schedules.findBlockingScheduleForApp(pkg, this).also {
-                lastAppCheckPkg = pkg
-                lastAppCheckTime = now
-                lastAppCheckSchedule = it
-            }
-        }
+        val blockingSchedule = Schedules.findBlockingScheduleForApp(pkg, this)
         if (blockingSchedule != null) {
+            val now = System.currentTimeMillis()
             if (pkg != lastBlockedPkg || now - lastBlockedTime >= APP_BLOCK_THROTTLE_MS) {
                 lastBlockedPkg = pkg
                 lastBlockedTime = now
@@ -107,29 +92,24 @@ class BlockerService : AccessibilityService() {
     }
 
     private fun getAppLabel(packageName: String): String {
-        appLabelCache[packageName]?.let { return it }
         return try {
             this.packageManager.getApplicationLabel(
                 this.packageManager.getApplicationInfo(packageName, 0)
             ).toString()
-                .also { appLabelCache[packageName] = it }
         } catch (_: Exception) {
             packageName
         }
     }
 
     private fun shouldSkipPackage(packageName: String): Boolean {
-        skipPackageCache[packageName]?.let { return it }
         return try {
             val info = this.packageManager.getApplicationInfo(packageName, 0)
             val isSystem = (info.flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
-            val shouldSkip = if (isSystem) {
+            if (isSystem) {
                 this.packageManager.getLaunchIntentForPackage(packageName) == null
             } else {
                 false
             }
-            skipPackageCache[packageName] = shouldSkip
-            shouldSkip
         } catch (_: Exception) {
             false
         }

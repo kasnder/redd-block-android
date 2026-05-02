@@ -1,5 +1,6 @@
 package net.kollnig.reddblockandroid.assistant
 
+import net.kollnig.reddblockandroid.data.MotionCondition
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
 import org.junit.Assert.assertEquals
@@ -82,6 +83,26 @@ class AssistantImportParserTest {
     }
 
     @Test
+    fun parsesProposalWithMotionAndWifiConditions() {
+        val actions = AssistantImportParser.parseActions(
+            replyText = fenced(
+                validProposalAction(
+                    motionCondition = """{"activity":"IN_VEHICLE"}""",
+                    wifiCondition = """{"label":"Work","ssid":"OfficeNet"}"""
+                )
+            ),
+            installedApps = installedApps,
+            existingSchedules = { emptyList() },
+            scheduleById = { null }
+        ).getOrThrow()
+
+        val action = actions.single() as ImportedAssistantAction.Proposal
+        assertEquals(MotionCondition.Activity.IN_VEHICLE, action.proposal.timing.motionCondition?.activity)
+        assertEquals("Work", action.proposal.timing.wifiCondition?.label)
+        assertEquals("OfficeNet", action.proposal.timing.wifiCondition?.ssid)
+    }
+
+    @Test
     fun rejectsUnknownPackageName() {
         val result = AssistantImportParser.parseActions(
             replyText = fenced(validProposalAction(packageName = "com.unknown.app")),
@@ -127,6 +148,35 @@ class AssistantImportParserTest {
         )
 
         assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun rejectsManualScheduleWithContextConditions() {
+        val result = AssistantImportParser.parseActions(
+            replyText = fenced(
+                validProposalAction(
+                    scheduleType = "MANUAL",
+                    timeHourLiteral = "null",
+                    timeMinuteLiteral = "null",
+                    endTimeHourLiteral = "null",
+                    endTimeMinuteLiteral = "null",
+                    motionCondition = """{"activity":"WALKING"}"""
+                )
+            ),
+            installedApps = installedApps,
+            existingSchedules = { emptyList() },
+            scheduleById = { null }
+        )
+
+        assertTrue(result.isFailure)
+    }
+
+    @Test
+    fun promptOptionsKeepUsageStatsOptInByDefault() {
+        val options = PromptOptions()
+
+        assertTrue(options.includeTopUsedApps)
+        assertTrue(!options.includeUsageStats)
     }
 
     @Test
@@ -202,7 +252,14 @@ class AssistantImportParserTest {
         packageName: String = "com.example.social",
         blockedWebsites: String = """"reddit.com"""",
         timeHour: Int = 21,
-        autoReenableMinutes: Int = 10
+        autoReenableMinutes: Int = 10,
+        scheduleType: String = "DAILY",
+        timeHourLiteral: String = "$timeHour",
+        timeMinuteLiteral: String = "0",
+        endTimeHourLiteral: String = "23",
+        endTimeMinuteLiteral: String = "0",
+        motionCondition: String = "null",
+        wifiCondition: String = "null"
     ): String {
         return """
             {
@@ -215,14 +272,14 @@ class AssistantImportParserTest {
                     "blockedApps": ["$packageName"],
                     "blockedWebsites": [$blockedWebsites],
                     "timing": {
-                      "type": "DAILY",
-                      "timeHour": $timeHour,
-                      "timeMinute": 0,
-                      "endTimeHour": 23,
-                      "endTimeMinute": 0,
+                      "type": "$scheduleType",
+                      "timeHour": $timeHourLiteral,
+                      "timeMinute": $timeMinuteLiteral,
+                      "endTimeHour": $endTimeHourLiteral,
+                      "endTimeMinute": $endTimeMinuteLiteral,
                       "daysOfWeek": [],
-                      "motionCondition": null,
-                      "wifiCondition": null
+                      "motionCondition": $motionCondition,
+                      "wifiCondition": $wifiCondition
                     },
                     "frictionWordCount": 15,
                     "autoReenableMinutes": $autoReenableMinutes,
