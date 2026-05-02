@@ -7,6 +7,7 @@ import net.kollnig.reddblockandroid.data.ScheduleTiming
 import net.kollnig.reddblockandroid.data.WifiCondition
 import org.json.JSONObject
 import java.time.DayOfWeek
+import java.util.UUID
 
 @Immutable
 data class ScheduleTimingDraft(
@@ -41,6 +42,20 @@ data class ScheduleAmendmentProposal(
 )
 
 @Immutable
+data class AssistantMessage(
+    val role: Role,
+    val text: String,
+    val proposal: ScheduleProposal? = null,
+    val amendment: ScheduleAmendmentProposal? = null,
+    val id: String = UUID.randomUUID().toString()
+) {
+    enum class Role {
+        USER,
+        ASSISTANT
+    }
+}
+
+@Immutable
 data class InstalledAppSummary(
     val packageName: String,
     val label: String
@@ -58,40 +73,16 @@ data class AssistantContext(
     val existingSchedules: String,
     val installedApps: List<InstalledAppSummary>,
     val usageSummaries: List<UsageSummary>,
-    val scheduledApps: List<InstalledAppSummary>,
+    val usageSharingEnabled: Boolean,
+    val motionSharingEnabled: Boolean,
     val motionStateJson: JSONObject?,
+    val wifiSharingEnabled: Boolean,
     val wifiJson: JSONObject?,
-    val savedWifiNetworks: List<SavedWifiNetworkSummary>,
     val goals: String
 )
 
-@Immutable
-data class SavedWifiNetworkSummary(
-    val label: String,
-    val ssid: String?
-)
-
-@Immutable
-data class PromptOptions(
-    val includeExistingSchedules: Boolean = true,
-    val includeTopUsedApps: Boolean = true,
-    val includeScheduledApps: Boolean = true,
-    val includeAllInstalledApps: Boolean = false,
-    val includeUsageStats: Boolean = false,
-    val includeMotionContext: Boolean = false,
-    val includeWifiContext: Boolean = false,
-    val includeSavedWifiNetworks: Boolean = false,
-    val includeGoals: Boolean = true
-)
-
-sealed class ImportedAssistantAction {
-    data class Proposal(
-        val rationale: String,
-        val proposal: ScheduleProposal
-    ) : ImportedAssistantAction()
-
-    data class Amendment(
-        val rationale: String,
-        val amendment: ScheduleAmendmentProposal
-    ) : ImportedAssistantAction()
+sealed class AssistantResult {
+    data class Message(val text: String) : AssistantResult()
+    data class Proposal(val text: String, val proposal: ScheduleProposal) : AssistantResult()
+    data class Amendment(val text: String, val amendment: ScheduleAmendmentProposal) : AssistantResult()
 }

@@ -2,157 +2,166 @@ package net.kollnig.reddblockandroid.ui.screen
 
 import android.Manifest
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
-import androidx.compose.material.icons.rounded.Delete
-import androidx.compose.material.icons.rounded.Key
-import androidx.compose.material.icons.rounded.OpenInNew
-import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.rounded.ContentCopy
+import androidx.compose.material.icons.rounded.ContentPaste
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-import net.kollnig.reddblockandroid.assistant.AssistantMessage
-import net.kollnig.reddblockandroid.assistant.AssistantResult
-import net.kollnig.reddblockandroid.assistant.AssistantViewModel
-import net.kollnig.reddblockandroid.assistant.AssistantAiModels
+import net.kollnig.reddblockandroid.assistant.AssistantImportParser
+import net.kollnig.reddblockandroid.assistant.ContextProvider
+import net.kollnig.reddblockandroid.assistant.ImportedAssistantAction
+import net.kollnig.reddblockandroid.assistant.PromptOptions
 import net.kollnig.reddblockandroid.assistant.ScheduleAmendmentProposal
 import net.kollnig.reddblockandroid.assistant.ScheduleProposal
+import net.kollnig.reddblockandroid.assistant.WifiContextProvider
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AssistantScreen(
-    messages: SnapshotStateList<AssistantMessage>,
-    isSending: Boolean,
-    onSendingChange: (Boolean) -> Unit,
-    assistantScope: CoroutineScope,
     onReviewProposal: (ScheduleProposal) -> Unit,
     onReviewAmendment: (ScheduleAmendmentProposal) -> Unit
 ) {
     val context = LocalContext.current
-    val viewModel = remember { AssistantViewModel(context) }
+    val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    val contextProvider = remember { ContextProvider(context) }
+    val wifiContextProvider = remember { WifiContextProvider(context) }
+    val screenPrefs = remember {
+        context.getSharedPreferences("assistant_prompt_flow", Context.MODE_PRIVATE)
+    }
 
-    var hasApiKey by remember { mutableStateOf(viewModel.hasApiKey()) }
-    var showSettings by remember { mutableStateOf(!hasApiKey) }
-    var apiKey by remember { mutableStateOf(viewModel.apiKeyDraft) }
-    var model by remember { mutableStateOf(viewModel.modelDraft) }
-    var goals by remember { mutableStateOf(viewModel.goalsDraft) }
-    var usageSharing by remember { mutableStateOf(viewModel.usageSharingEnabled) }
-    var motionSharing by remember { mutableStateOf(viewModel.motionSharingEnabled) }
-    var wifiSharing by remember { mutableStateOf(viewModel.wifiSharingEnabled) }
-    var isSaving by remember { mutableStateOf(false) }
-    var messageDraft by remember { mutableStateOf("") }
-    val isFreshChat = messages.size == 1 && messages.firstOrNull()?.role == AssistantMessage.Role.ASSISTANT
-    val examplePrompts = remember {
-        listOf(
-            "Analyze my schedules",
-            "Help me stop morning scrolling.",
-            "Block commute scrolling.",
-            "Suggest a bedtime schedule.",
-            "Use Home Wi-Fi."
+    var userProblem by remember { mutableStateOf(screenPrefs.getString(KEY_OPENING_MESSAGE, "") ?: "") }
+    var goals by remember { mutableStateOf(screenPrefs.getString(KEY_GOALS, "") ?: "") }
+    var usagePermissionAvailable by remember { mutableStateOf(contextProvider.hasUsageStatsPermission()) }
+    var options by remember {
+        mutableStateOf(
+            PromptOptions(
+                includeExistingSchedules = screenPrefs.getBoolean(KEY_INCLUDE_SCHEDULES, true),
+                includeTopUsedApps = screenPrefs.getBoolean(KEY_INCLUDE_TOP_USED, usagePermissionAvailable),
+                includeScheduledApps = screenPrefs.getBoolean(KEY_INCLUDE_SCHEDULED_APPS, true),
+                includeAllInstalledApps = screenPrefs.getBoolean(KEY_INCLUDE_ALL_APPS, false),
+                includeUsageStats = screenPrefs.getBoolean(KEY_INCLUDE_USAGE, false),
+                includeMotionContext = screenPrefs.getBoolean(KEY_INCLUDE_MOTION, false),
+                includeWifiContext = screenPrefs.getBoolean(KEY_INCLUDE_WIFI, false),
+                includeSavedWifiNetworks = screenPrefs.getBoolean(KEY_INCLUDE_SAVED_WIFI, false),
+                includeGoals = true
+            )
         )
     }
-    fun syncSettingsDrafts() {
-        viewModel.apiKeyDraft = apiKey
-        viewModel.modelDraft = AssistantAiModels.normalize(model)
-        viewModel.goalsDraft = goals
-        viewModel.usageSharingEnabled = usageSharing
-        viewModel.motionSharingEnabled = motionSharing
-        viewModel.wifiSharingEnabled = wifiSharing
-    }
+    var parsedActions by remember { mutableStateOf<List<ImportedAssistantAction>>(emptyList()) }
+    var importError by remember { mutableStateOf<String?>(null) }
+    var isGenerating by remember { mutableStateOf(false) }
+    var showSettings by remember { mutableStateOf(false) }
+    var pendingCopyAfterSettings by remember { mutableStateOf(false) }
+    var hasSeenSettings by remember { mutableStateOf(screenPrefs.getBoolean(KEY_HAS_SEEN_SETTINGS, false)) }
 
+    val usageSettingsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        usagePermissionAvailable = contextProvider.hasUsageStatsPermission()
+        if (usagePermissionAvailable) {
+            options = options.copy(includeTopUsedApps = true)
+        }
+    }
     val motionPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        motionSharing = granted
-        if (granted) {
-            viewModel.motionSharingEnabled = true
-            viewModel.startMotionUpdates()
-        } else {
-            scope.launch { snackbarHostState.showSnackbar("Motion permission was not granted.") }
-        }
+        options = options.copy(includeMotionContext = granted)
+        if (!granted) scope.launch { snackbarHostState.showSnackbar("Motion permission was not granted.") }
     }
-
     val wifiPermissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        wifiSharing = granted
-        if (!granted) {
-            scope.launch { snackbarHostState.showSnackbar("Wi-Fi context permission was not granted.") }
+        options = options.copy(includeWifiContext = granted, includeSavedWifiNetworks = granted)
+        if (!granted) scope.launch { snackbarHostState.showSnackbar("Wi-Fi context permission was not granted.") }
+    }
+
+    fun saveSettings() {
+        screenPrefs.edit()
+            .putBoolean(KEY_HAS_SEEN_SETTINGS, true)
+            .putString(KEY_OPENING_MESSAGE, userProblem)
+            .putString(KEY_GOALS, goals)
+            .putBoolean(KEY_INCLUDE_SCHEDULES, options.includeExistingSchedules)
+            .putBoolean(KEY_INCLUDE_TOP_USED, options.includeTopUsedApps)
+            .putBoolean(KEY_INCLUDE_SCHEDULED_APPS, options.includeScheduledApps)
+            .putBoolean(KEY_INCLUDE_ALL_APPS, options.includeAllInstalledApps)
+            .putBoolean(KEY_INCLUDE_USAGE, options.includeUsageStats)
+            .putBoolean(KEY_INCLUDE_MOTION, options.includeMotionContext)
+            .putBoolean(KEY_INCLUDE_WIFI, options.includeWifiContext)
+            .putBoolean(KEY_INCLUDE_SAVED_WIFI, options.includeSavedWifiNetworks)
+            .apply()
+        hasSeenSettings = true
+    }
+
+    fun copyPrompt() {
+        isGenerating = true
+        try {
+            val prompt = contextProvider.buildPrompt(
+                userProblem = userProblem.trim(),
+                goals = goals.trim(),
+                options = options
+            )
+            clipboardManager.setText(AnnotatedString(prompt))
+            scope.launch { snackbarHostState.showSnackbar("Prompt copied.") }
+        } catch (e: Exception) {
+            scope.launch { snackbarHostState.showSnackbar(e.message ?: "Could not copy prompt.") }
+        } finally {
+            isGenerating = false
         }
     }
 
-    fun sendMessage(text: String) {
-        if (text.isBlank() || isSending) return
-        messageDraft = ""
-        messages.add(AssistantMessage(AssistantMessage.Role.USER, text))
-        assistantScope.launch {
-            onSendingChange(true)
-            try {
-                val result = viewModel.sendMessage(text, messages.toList())
-                when (result) {
-                    is AssistantResult.Message ->
-                        messages.add(AssistantMessage(AssistantMessage.Role.ASSISTANT, result.text))
-                    is AssistantResult.Proposal ->
-                        messages.add(
-                            AssistantMessage(
-                                role = AssistantMessage.Role.ASSISTANT,
-                                text = result.text,
-                                proposal = result.proposal
-                            )
-                        )
-                    is AssistantResult.Amendment ->
-                        messages.add(
-                            AssistantMessage(
-                                role = AssistantMessage.Role.ASSISTANT,
-                                text = result.text,
-                                amendment = result.amendment
-                            )
-                        )
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                messages.add(
-                    AssistantMessage(
-                        AssistantMessage.Role.ASSISTANT,
-                        e.message ?: "I could not reach Nebius. Check your key and network connection."
-                    )
-                )
-            } finally {
-                onSendingChange(false)
-            }
+    fun copyPromptWithFirstRunCheck() {
+        if (!hasSeenSettings) {
+            pendingCopyAfterSettings = true
+            showSettings = true
+            return
+        }
+        copyPrompt()
+    }
+
+    fun importReply(replyText: String) {
+        parsedActions = emptyList()
+        importError = null
+        try {
+            val actions = AssistantImportParser.parseActions(
+                replyText = replyText,
+                installedApps = contextProvider.getInstalledApps()
+            ).getOrElse { throw it }
+            parsedActions = actions
+            scope.launch { snackbarHostState.showSnackbar("Parsed ${actions.size} schedule action${if (actions.size == 1) "" else "s"}.") }
+        } catch (e: Exception) {
+            importError = e.message ?: "Could not import the AI reply."
         }
     }
 
-    fun sendCurrentMessage() {
-        sendMessage(messageDraft.trim())
+    fun pasteAndImportReply() {
+        val text = clipboardManager.getText()?.text.orEmpty()
+        if (text.isBlank()) {
+            scope.launch { snackbarHostState.showSnackbar("Clipboard is empty.") }
+            return
+        }
+        importReply(text)
     }
 
     Scaffold(
@@ -160,18 +169,10 @@ fun AssistantScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text("Assistant", fontWeight = FontWeight.Bold) },
+                title = { Text("AI Helper", fontWeight = FontWeight.Bold) },
                 actions = {
-                    IconButton(
-                        onClick = {
-                            messages.clear()
-                            messages.add(assistantWelcomeMessage())
-                        }
-                    ) {
-                        Icon(Icons.Rounded.Delete, contentDescription = "Reset chat")
-                    }
                     IconButton(onClick = { showSettings = true }) {
-                        Icon(Icons.Rounded.Settings, contentDescription = "Assistant settings")
+                        Icon(Icons.Rounded.Settings, contentDescription = "Prompt settings")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -180,88 +181,79 @@ fun AssistantScreen(
             )
         }
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(vertical = 12.dp)
         ) {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-                contentPadding = PaddingValues(vertical = 12.dp)
-            ) {
-                items(
-                    items = messages,
-                    key = { message -> message.id },
-                    contentType = { message ->
-                        when {
-                            message.proposal != null -> "proposal"
-                            message.amendment != null -> "amendment"
-                            else -> "message"
-                        }
+            item {
+                SectionSurface {
+                    Text(
+                        "Configure your digital home with your favourite AI chatbot.",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "Step 1: copy a ReDD prompt and paste it into ChatGPT, Claude, Gemini, or another AI you like. Talk there normally about schedules, routines, or digital self-control.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "Step 2: when the AI suggests ReDD changes, copy its full reply and paste it back here. ReDD will show the proposed schedules for review before saving.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
+
+            item {
+                SectionSurface {
+                    Button(
+                        onClick = { copyPromptWithFirstRunCheck() },
+                        enabled = !isGenerating,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Rounded.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Step 1: Copy prompt")
                     }
-                ) { message ->
-                    AssistantMessageCard(
-                        message = message,
+                    Button(
+                        onClick = { pasteAndImportReply() },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(Icons.Rounded.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text("Step 2: Paste AI reply")
+                    }
+                }
+            }
+
+            importError?.let {
+                item {
+                    Text(
+                        it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
+            if (parsedActions.isNotEmpty()) {
+                item {
+                    Text(
+                        "Parsed actions",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                itemsIndexed(parsedActions) { index, action ->
+                    ParsedActionCard(
+                        index = index,
+                        action = action,
                         onReviewProposal = onReviewProposal,
                         onReviewAmendment = onReviewAmendment
                     )
-                }
-                if (isSending) {
-                    item {
-                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                    }
-                }
-            }
-
-            if (isFreshChat) {
-                FlowRow(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    examplePrompts.forEach { prompt ->
-                        AssistChip(
-                            onClick = { sendMessage(prompt) },
-                            enabled = hasApiKey && !isSending,
-                            label = {
-                                Text(
-                                    prompt,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                            }
-                        )
-                    }
-                }
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                OutlinedTextField(
-                    value = messageDraft,
-                    onValueChange = { messageDraft = it },
-                    modifier = Modifier.weight(1f),
-                    enabled = hasApiKey && !isSending,
-                    placeholder = { Text(if (hasApiKey) "What problem should ReDD help with?" else "Add a Nebius key first") },
-                    shape = RoundedCornerShape(12.dp),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(onSend = { sendCurrentMessage() }),
-                    maxLines = 4
-                )
-                FilledIconButton(
-                    onClick = { sendCurrentMessage() },
-                    enabled = hasApiKey && messageDraft.isNotBlank() && !isSending
-                ) {
-                    Icon(Icons.Rounded.Send, contentDescription = "Send")
                 }
             }
         }
@@ -269,157 +261,171 @@ fun AssistantScreen(
 
     if (showSettings) {
         AlertDialog(
-            onDismissRequest = { showSettings = false },
-            title = { Text("Assistant setup", fontWeight = FontWeight.Bold) },
+            onDismissRequest = {
+                showSettings = false
+                pendingCopyAfterSettings = false
+            },
+            title = { Text("Prompt settings", fontWeight = FontWeight.Bold) },
             text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.heightIn(max = 520.dp)
                 ) {
-                    DataSharingNotice(
-                        usageSharing = usageSharing,
-                        motionSharing = motionSharing,
-                        wifiSharing = wifiSharing
-                    )
-                    OutlinedTextField(
-                        value = apiKey,
-                        onValueChange = { apiKey = it },
-                        label = { Text("Nebius API key") },
-                        leadingIcon = { Icon(Icons.Rounded.Key, contentDescription = null) },
-                        visualTransformation = PasswordVisualTransformation(),
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    ModelPresetSelector(
-                        selectedModel = model,
-                        onModelSelected = { model = it }
-                    )
-                    OutlinedTextField(
-                        value = goals,
-                        onValueChange = { goals = it },
-                        label = { Text("Goal notes") },
-                        minLines = 2,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(
-                            checked = usageSharing,
-                            onCheckedChange = { usageSharing = it }
+                    item {
+                        Text(
+                            "Choose what ReDD includes in the prompt before you paste it into your favourite AI chatbot.",
+                            style = MaterialTheme.typography.bodyMedium
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Share coarse Usage Stats")
-                            Text(
-                                "Labels, packages, duration buckets only.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
-                    if (usageSharing && !viewModel.hasUsageStatsPermission()) {
-                        OutlinedButton(
-                            onClick = {
-                                try {
-                                    context.startActivity(viewModel.usageSettingsIntent())
-                                } catch (_: ActivityNotFoundException) {
-                                    scope.launch { snackbarHostState.showSnackbar("Could not open Usage Access settings.") }
+                    item {
+                        OutlinedTextField(
+                            value = userProblem,
+                            onValueChange = { userProblem = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Optional first question") },
+                            placeholder = { Text("Leave blank for starter options") },
+                            minLines = 2,
+                            maxLines = 4
+                        )
+                    }
+                    item {
+                        OutlinedTextField(
+                            value = goals,
+                            onValueChange = { goals = it },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Goal notes") },
+                            minLines = 2,
+                            maxLines = 4
+                        )
+                    }
+                    item {
+                        PromptOptionSwitch(
+                            title = "Existing schedules",
+                            description = "Names, blocked apps/sites, timing, friction, pause duration, and context conditions.",
+                            checked = options.includeExistingSchedules,
+                            onCheckedChange = { options = options.copy(includeExistingSchedules = it) }
+                        )
+                    }
+                    item {
+                        PromptOptionSwitch(
+                            title = "Top 20 used apps",
+                            description = if (usagePermissionAvailable) "Default app list for recommendations." else "Needs Usage Access permission.",
+                            checked = options.includeTopUsedApps,
+                            onCheckedChange = { enabled ->
+                                if (!enabled || usagePermissionAvailable) {
+                                    options = options.copy(includeTopUsedApps = enabled)
+                                } else {
+                                    try {
+                                        usageSettingsLauncher.launch(contextProvider.usageSettingsIntent())
+                                    } catch (_: ActivityNotFoundException) {
+                                        scope.launch { snackbarHostState.showSnackbar("Could not open Usage Access settings.") }
+                                    }
                                 }
                             }
-                        ) {
-                            Icon(Icons.Rounded.OpenInNew, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Text("Open Usage Access settings")
-                        }
+                        )
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(
-                            checked = motionSharing,
+                    item {
+                        PromptOptionSwitch(
+                            title = "Apps already in schedules",
+                            description = "Keeps existing blocked apps available even if they are not in today's top usage.",
+                            checked = options.includeScheduledApps,
+                            onCheckedChange = { options = options.copy(includeScheduledApps = it) }
+                        )
+                    }
+                    item {
+                        PromptOptionSwitch(
+                            title = "All installed apps",
+                            description = "Opt-in full app inventory for broader recommendations.",
+                            checked = options.includeAllInstalledApps,
+                            onCheckedChange = { options = options.copy(includeAllInstalledApps = it) }
+                        )
+                    }
+                    item {
+                        PromptOptionSwitch(
+                            title = "Usage stats",
+                            description = "App labels, package names, minutes used, and time-of-day buckets.",
+                            checked = options.includeUsageStats,
+                            onCheckedChange = { enabled ->
+                                if (!enabled || usagePermissionAvailable) {
+                                    options = options.copy(includeUsageStats = enabled)
+                                } else {
+                                    try {
+                                        usageSettingsLauncher.launch(contextProvider.usageSettingsIntent())
+                                    } catch (_: ActivityNotFoundException) {
+                                        scope.launch { snackbarHostState.showSnackbar("Could not open Usage Access settings.") }
+                                    }
+                                }
+                            }
+                        )
+                    }
+                    item {
+                        PromptOptionSwitch(
+                            title = "Motion context",
+                            description = "Recent Android activity such as still, walking, cycling, running, or in vehicle.",
+                            checked = options.includeMotionContext,
                             onCheckedChange = { enabled ->
                                 if (!enabled) {
-                                    motionSharing = false
-                                } else if (viewModel.hasMotionPermission()) {
-                                    motionSharing = true
-                                } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                    options = options.copy(includeMotionContext = false)
+                                } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || context.checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                    options = options.copy(includeMotionContext = true)
+                                } else {
                                     motionPermissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
-                                } else {
-                                    motionSharing = true
                                 }
                             }
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Share motion context")
-                            Text(
-                                "Uses Android Activity Recognition: still, walking, cycling, running, or in vehicle.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Switch(
-                            checked = wifiSharing,
+                    item {
+                        PromptOptionSwitch(
+                            title = "Wi-Fi context",
+                            description = "Current Wi-Fi name for home, work, or campus schedules.",
+                            checked = options.includeWifiContext,
                             onCheckedChange = { enabled ->
                                 if (!enabled) {
-                                    wifiSharing = false
-                                } else if (viewModel.hasWifiPermission()) {
-                                    wifiSharing = true
+                                    options = options.copy(includeWifiContext = false)
+                                } else if (wifiContextProvider.hasPermission()) {
+                                    options = options.copy(includeWifiContext = true)
                                 } else {
-                                    wifiPermissionLauncher.launch(viewModel.wifiRuntimePermission())
+                                    wifiPermissionLauncher.launch(wifiContextProvider.runtimePermission())
                                 }
                             }
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text("Share Wi-Fi context")
-                            Text(
-                                "Reads Wi-Fi network names for home, work, and campus schedules. Android requires location permission for SSID access.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                    }
+                    item {
+                        PromptOptionSwitch(
+                            title = "Saved Wi-Fi networks",
+                            description = "Saved labels and SSIDs used for context-triggered schedules.",
+                            checked = options.includeSavedWifiNetworks,
+                            onCheckedChange = { enabled ->
+                                if (!enabled) {
+                                    options = options.copy(includeSavedWifiNetworks = false)
+                                } else if (wifiContextProvider.hasPermission()) {
+                                    options = options.copy(includeSavedWifiNetworks = true)
+                                } else {
+                                    wifiPermissionLauncher.launch(wifiContextProvider.runtimePermission())
+                                }
+                            }
+                        )
                     }
                 }
             },
             confirmButton = {
-                TextButton(
-                    enabled = !isSaving,
-                    onClick = {
-                        syncSettingsDrafts()
-                        scope.launch {
-                            isSaving = true
-                            try {
-                                viewModel.saveSettings()
-                                hasApiKey = viewModel.hasApiKey()
-                                showSettings = false
-                                snackbarHostState.showSnackbar("Assistant settings saved.")
-                            } catch (e: Exception) {
-                                snackbarHostState.showSnackbar(e.message ?: "Could not save assistant settings.")
-                            } finally {
-                                isSaving = false
-                            }
-                        }
+                TextButton(onClick = {
+                    saveSettings()
+                    showSettings = false
+                    if (pendingCopyAfterSettings) {
+                        pendingCopyAfterSettings = false
+                        copyPrompt()
                     }
-                ) {
-                    Text(if (isSaving) "Saving..." else "Save")
+                }) {
+                    Text(if (pendingCopyAfterSettings) "Save and copy" else "Save")
                 }
             },
             dismissButton = {
-                Row {
-                    if (hasApiKey) {
-                        TextButton(onClick = {
-                            viewModel.clearApiKey()
-                            apiKey = ""
-                            hasApiKey = false
-                        }) {
-                            Icon(Icons.Rounded.Delete, contentDescription = null, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(4.dp))
-                            Text("Clear key")
-                        }
-                    }
-                    TextButton(onClick = { showSettings = false }) {
-                        Text("Cancel")
-                    }
+                TextButton(onClick = {
+                    showSettings = false
+                    pendingCopyAfterSettings = false
+                }) {
+                    Text("Cancel")
                 }
             }
         )
@@ -427,169 +433,89 @@ fun AssistantScreen(
 }
 
 @Composable
-private fun AssistantMessageCard(
-    message: AssistantMessage,
+private fun SectionSurface(content: @Composable ColumnScope.() -> Unit) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
+            content = content
+        )
+    }
+}
+
+@Composable
+private fun PromptOptionSwitch(
+    title: String,
+    description: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, fontWeight = FontWeight.Medium)
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun ParsedActionCard(
+    index: Int,
+    action: ImportedAssistantAction,
     onReviewProposal: (ScheduleProposal) -> Unit,
     onReviewAmendment: (ScheduleAmendmentProposal) -> Unit
 ) {
-    val isUser = message.role == AssistantMessage.Role.USER
-    val displayText = remember(message.id, message.text, isUser) {
-        if (isUser) message.text else message.text.toPlainAssistantText()
-    }
-    Row(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = if (isUser) Arrangement.End else Arrangement.Start
+        shape = RoundedCornerShape(10.dp)
     ) {
-        Card(
-            modifier = Modifier.fillMaxWidth(if (isUser) 0.86f else 0.96f),
-            shape = RoundedCornerShape(12.dp),
-            colors = CardDefaults.cardColors(
-                containerColor = if (isUser) MaterialTheme.colorScheme.primaryContainer
-                else MaterialTheme.colorScheme.surface
-            )
+        Column(
+            modifier = Modifier.padding(14.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (!isUser) {
-                        Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp))
-                    }
+            when (action) {
+                is ImportedAssistantAction.Proposal -> {
+                    Text("New schedule ${index + 1}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    Text(action.proposal.name, style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Text(
-                        if (isUser) "You" else "Ulrik",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Text(
-                    displayText,
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                message.proposal?.let { proposal ->
-                    val summary = remember(proposal) { proposalSummary(proposal) }
-                    HorizontalDivider()
-                    Text(
-                        proposal.name,
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        summary,
+                        proposalSummary(action.proposal),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 5,
+                        maxLines = 6,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Button(onClick = { onReviewProposal(proposal) }) {
+                    Button(onClick = { onReviewProposal(action.proposal) }) {
                         Text("Review and create")
                     }
                 }
-                message.amendment?.let { amendment ->
-                    val summary = remember(amendment) { scheduleSummary(amendment.updatedSchedule) }
-                    HorizontalDivider()
+                is ImportedAssistantAction.Amendment -> {
+                    Text("Schedule change ${index + 1}", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                    Text("Amend ${action.amendment.originalName}", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
                     Text(
-                        "Amend ${amendment.originalName}",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        summary,
+                        scheduleSummary(action.amendment.updatedSchedule),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 5,
+                        maxLines = 6,
                         overflow = TextOverflow.Ellipsis
                     )
-                    Button(onClick = { onReviewAmendment(amendment) }) {
+                    Button(onClick = { onReviewAmendment(action.amendment) }) {
                         Text("Review changes")
                     }
                 }
             }
-        }
-    }
-}
-
-fun assistantWelcomeMessage(): AssistantMessage {
-    return AssistantMessage(
-        AssistantMessage.Role.ASSISTANT,
-        "Aloha, I’m Ulrik. I can help you set up blocks that fit the moments when distracting apps are hardest to resist. Tell me what gets in the way, or ask me to review your current schedules."
-    )
-}
-
-@Composable
-@OptIn(ExperimentalLayoutApi::class)
-private fun ModelPresetSelector(
-    selectedModel: String,
-    onModelSelected: (String) -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            "Model",
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            AssistantAiModels.PRESETS.forEach { preset ->
-                FilterChip(
-                    selected = selectedModel == preset.id,
-                    onClick = { onModelSelected(preset.id) },
-                    label = {
-                        Column {
-                            Text(preset.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text(
-                                preset.description,
-                                style = MaterialTheme.typography.labelSmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis
-                            )
-                        }
-                    }
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun DataSharingNotice(
-    usageSharing: Boolean,
-    motionSharing: Boolean,
-    wifiSharing: Boolean
-) {
-    val optionalData = mutableListOf<String>()
-    if (usageSharing) optionalData.add("Usage Stats app labels, package names, minutes used, and time-of-day buckets")
-    if (motionSharing) optionalData.add("recent motion state such as still, walking, cycling, running, or in vehicle")
-    if (wifiSharing) optionalData.add("current and saved Wi-Fi names")
-    val optionalText = if (optionalData.isEmpty()) {
-        "Optional context is currently off."
-    } else {
-        "Optional context currently on: ${optionalData.joinToString("; ")}."
-    }
-
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        Column(
-            modifier = Modifier.padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
-        ) {
-            Text(
-                "Data sent to Nebius",
-                style = MaterialTheme.typography.labelLarge,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Text(
-                "Each request goes to Nebius Token Factory using a selected eu-north1 model and includes your message, recent chat history, goal notes, local time/timezone, installed app labels/package names, and existing schedules including names, blocked apps/sites, timing, friction, pause duration, motion and Wi-Fi conditions. $optionalText",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
         }
     }
 }
@@ -601,10 +527,10 @@ private fun proposalSummary(proposal: ScheduleProposal): String {
         proposal.timing.wifiCondition?.let { "on ${it.label} Wi-Fi" }
     )
     val timing = when (proposal.timing.type) {
-        net.kollnig.reddblockandroid.data.ScheduleTiming.ScheduleType.MANUAL -> "Manual"
-        net.kollnig.reddblockandroid.data.ScheduleTiming.ScheduleType.DAILY ->
+        ScheduleTiming.ScheduleType.MANUAL -> "Manual"
+        ScheduleTiming.ScheduleType.DAILY ->
             "Daily ${proposal.timing.timeHour.twoDigits()}:${proposal.timing.timeMinute.twoDigits()}-${proposal.timing.endTimeHour.twoDigits()}:${proposal.timing.endTimeMinute.twoDigits()}"
-        net.kollnig.reddblockandroid.data.ScheduleTiming.ScheduleType.WEEKLY ->
+        ScheduleTiming.ScheduleType.WEEKLY ->
             "Weekly ${proposal.timing.daysOfWeek.joinToString { it.name.take(3) }} ${proposal.timing.timeHour.twoDigits()}:${proposal.timing.timeMinute.twoDigits()}-${proposal.timing.endTimeHour.twoDigits()}:${proposal.timing.endTimeMinute.twoDigits()}"
     }
     val activeWhen = if (conditions.isEmpty()) "" else "\nActive ${conditions.joinToString(" and ")}"
@@ -641,23 +567,14 @@ private fun Int.pauseLabel(): String = when (this) {
     else -> "$this minutes"
 }
 
-private val MarkdownHeaderRegex = Regex("""^\s{0,3}#{1,6}\s*""")
-private val MarkdownBoldStarRegex = Regex("""\*\*(.*?)\*\*""")
-private val MarkdownBoldUnderRegex = Regex("""__(.*?)__""")
-private val MarkdownListRegex = Regex("""^\s*[-*]\s+""")
-
-private fun String.toPlainAssistantText(): String {
-    return replace("```", "")
-        .lineSequence()
-        .map { line ->
-            line
-                .replace(MarkdownHeaderRegex, "")
-                .replace(MarkdownBoldStarRegex, "$1")
-                .replace(MarkdownBoldUnderRegex, "$1")
-                .replace("`", "")
-                .replace(MarkdownListRegex, "- ")
-                .trimEnd()
-        }
-        .joinToString("\n")
-        .trim()
-}
+private const val KEY_HAS_SEEN_SETTINGS = "has_seen_settings"
+private const val KEY_OPENING_MESSAGE = "opening_message"
+private const val KEY_GOALS = "goals"
+private const val KEY_INCLUDE_SCHEDULES = "include_schedules"
+private const val KEY_INCLUDE_TOP_USED = "include_top_used"
+private const val KEY_INCLUDE_SCHEDULED_APPS = "include_scheduled_apps"
+private const val KEY_INCLUDE_ALL_APPS = "include_all_apps"
+private const val KEY_INCLUDE_USAGE = "include_usage"
+private const val KEY_INCLUDE_MOTION = "include_motion"
+private const val KEY_INCLUDE_WIFI = "include_wifi"
+private const val KEY_INCLUDE_SAVED_WIFI = "include_saved_wifi"

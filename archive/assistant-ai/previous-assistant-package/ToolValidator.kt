@@ -9,9 +9,7 @@ import org.json.JSONObject
 import java.time.DayOfWeek
 
 class ToolValidator(
-    installedApps: List<InstalledAppSummary>,
-    private val existingSchedules: () -> List<Schedule> = { Schedules.getAll() },
-    private val scheduleById: (String) -> Schedule? = { Schedules.get(it) }
+    installedApps: List<InstalledAppSummary>
 ) {
     private val installedPackages = installedApps.map { it.packageName }.toSet()
 
@@ -25,7 +23,7 @@ class ToolValidator(
     fun parseAndValidateAmendment(arguments: String): Result<ScheduleAmendmentProposal> = runCatching {
         val json = JSONObject(arguments)
         val scheduleId = json.getString("scheduleId")
-        val original = scheduleById(scheduleId)
+        val original = Schedules.get(scheduleId)
             ?: error("The schedule to amend no longer exists.")
         val timing = parseTiming(json.getJSONObject("timing"))
         val updated = original.copy(
@@ -137,7 +135,7 @@ class ToolValidator(
     }
 
     private fun duplicatesExistingSchedule(proposal: ScheduleProposal): Boolean {
-        return existingSchedules().any { schedule ->
+        return Schedules.getAll().any { schedule ->
             schedule.blockedApps.toSet() == proposal.blockedApps.toSet() &&
                     schedule.blockedWebsites.toSet() == proposal.blockedWebsites.toSet() &&
                     schedule.timing.type == proposal.timing.type &&

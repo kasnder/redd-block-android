@@ -21,6 +21,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import net.kollnig.reddblockandroid.assistant.AssistantMessage
 import net.kollnig.reddblockandroid.assistant.ScheduleAmendmentProposal
 import net.kollnig.reddblockandroid.assistant.ScheduleProposal
 import net.kollnig.reddblockandroid.data.Schedule
@@ -28,6 +29,7 @@ import net.kollnig.reddblockandroid.ui.screen.CreateScheduleScreen
 import net.kollnig.reddblockandroid.ui.screen.AssistantScreen
 import net.kollnig.reddblockandroid.ui.screen.FrictionGateScreen
 import net.kollnig.reddblockandroid.ui.screen.HomeScreen
+import net.kollnig.reddblockandroid.ui.screen.assistantWelcomeMessage
 import net.kollnig.reddblockandroid.ui.theme.ReDDBlockAndroidTheme
 import java.util.UUID
 
@@ -53,6 +55,11 @@ fun AppNavigation() {
     var pendingFrictionAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var frictionWordCount by remember { mutableIntStateOf(15) }
     var draftSchedule by remember { mutableStateOf<Schedule?>(null) }
+    var assistantIsSending by remember { mutableStateOf(false) }
+    val assistantScope = rememberCoroutineScope()
+    val assistantMessages = remember {
+        mutableStateListOf<AssistantMessage>(assistantWelcomeMessage())
+    }
 
     Scaffold(
         bottomBar = {
@@ -109,6 +116,10 @@ fun AppNavigation() {
 
             composable("assistant") {
                 AssistantScreen(
+                    messages = assistantMessages,
+                    isSending = assistantIsSending,
+                    onSendingChange = { assistantIsSending = it },
+                    assistantScope = assistantScope,
                     onReviewProposal = { proposal ->
                         draftSchedule = proposal.toDraftSchedule()
                         navController.navigate("create_schedule")
