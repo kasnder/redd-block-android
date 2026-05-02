@@ -86,6 +86,7 @@
     <string name="friction_gate_error">That doesn\'t match. Try again.</string>
     <string name="friction_gate_pinyin_hint">Type the pinyin\u2026</string>
     <string name="friction_gate_reveal_pinyin">Reveal pinyin</string>
+    <string name="friction_gate_quiz_prompt">Pick the pinyin. Try until you get it right.</string>
     <string name="friction_gate_next">Next</string>
     <string name="friction_gate_finish">Finish</string>
     <string name="friction_gate_weekly_stats">This week: %1$d words \u00b7 ~%2$d min typing</string>
@@ -130,8 +131,8 @@
     <string name="override_title">Override %s?</string>
     <string name="override_description">Blocks %1$d websites (%2$s)</string>
     <string name="override_instruction">To cancel this block early, type the following:</string>
-    <string name="override_instruction_chinese">To proceed, type the pinyin for each character:</string>
-    <string name="block_gate_instruction_chinese">Blocked by your \"%1$s\" schedule. To unlock, type the pinyin for each character:</string>
+    <string name="override_instruction_chinese">To proceed, pick the correct pinyin for each character:</string>
+    <string name="block_gate_instruction_chinese">Blocked by your \"%1$s\" schedule. To unlock, pick the correct pinyin for each character:</string>
     <string name="override_button">Override</string>
     <string name="type_here_hint">Type here…</string>
     <string name="footer_text">Made with ❤\uFE0F by reddfocus.org</string>

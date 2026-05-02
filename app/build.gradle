@@ -18,6 +18,13 @@ android {
     }
 
     buildTypes {
+        profile {
+            initWith debug
+            debuggable false
+            profileable true
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['debug']
+        }
         release {
             minifyEnabled true
             shrinkResources true
