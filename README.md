@@ -1,4 +1,4 @@
-# ReDD Block Android (Beta)
+# Fristed Android (Beta)
 
 Block distracting websites and apps with scheduled or one-off blocks. Stay focused on what matters.
 
@@ -56,7 +56,7 @@ flowchart TB
 
 ### App Blocking
 
-ReDD Block uses Android's Accessibility Service to monitor which app is in the foreground. When a blocked app is detected, the user is immediately returned to the home screen.
+Fristed uses Android's Accessibility Service to monitor which app is in the foreground. When a blocked app is detected, the user is immediately returned to the home screen.
 
 | Component | Role |
 |-----------|------|
@@ -97,12 +97,12 @@ Schedules are persisted via Room database and survive app restarts. A boot recei
 ## Project Structure
 
 ```
-ReDDBlockAndroid/
+redd-block-android/
 ├── app/src/main/
 │   ├── AndroidManifest.xml           # App manifest & permissions
 │   └── java/net/kollnig/reddblockandroid/
 │       ├── MainActivity.kt           # Main entry point
-│       ├── ReDDBlockApp.kt           # Application class
+│       ├── App.kt                    # Application class
 │       ├── data/                     # Room database & data models
 │       ├── receiver/                 # Boot & alarm broadcast receivers
 │       ├── schedule/                 # Schedule management logic
@@ -128,7 +128,7 @@ ReDDBlockAndroid/
 ```bash
 # Clone the repository
 git clone <repo-url>
-cd ReDDBlockAndroid
+cd redd-block-android
 
 # Build debug APK
 ./gradlew assembleDebug

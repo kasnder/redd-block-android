@@ -14,14 +14,14 @@ import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.ui.screen.CreateScheduleScreen
 import net.kollnig.reddblockandroid.ui.screen.FrictionGateScreen
 import net.kollnig.reddblockandroid.ui.screen.HomeScreen
-import net.kollnig.reddblockandroid.ui.theme.ReDDBlockAndroidTheme
+import net.kollnig.reddblockandroid.ui.theme.FristedAndroidTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            ReDDBlockAndroidTheme {
+            FristedAndroidTheme {
                 AppNavigation()
             }
         }

@@ -6,7 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import net.kollnig.reddblockandroid.schedule.Schedules
 import net.kollnig.reddblockandroid.ui.screen.FrictionGateScreen
-import net.kollnig.reddblockandroid.ui.theme.ReDDBlockAndroidTheme
+import net.kollnig.reddblockandroid.ui.theme.FristedAndroidTheme
 
 /**
  * Standalone activity launched by BlockerService when an app or website is blocked.
@@ -39,7 +39,7 @@ class UnlockActivity : ComponentActivity() {
         val unlockDurationText = formatUnlockDuration(schedule.autoReenableMinutes)
 
         setContent {
-            ReDDBlockAndroidTheme {
+            FristedAndroidTheme {
                 FrictionGateScreen(
                     wordCount = schedule.frictionWordCount,
                     unlockDurationText = unlockDurationText,

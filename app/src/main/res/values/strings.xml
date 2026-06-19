@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">ReDD Block</string>
+    <string name="app_name">Fristed</string>
 
     <!-- Consent Screen -->
     <string name="accessibility_consent_title">Consent necessary</string>
-    <string name="accessibility_consent_text">ReDD Block needs your explicit permission to use the Android Accessibility feature. We use this feature to detect and block access to specific apps and websites according to your schedules.\n\nTap \"I Agree\" to proceed to your Settings and enable it.</string>
+    <string name="accessibility_consent_text">Fristed needs your explicit permission to use the Android Accessibility feature. We use this feature to detect and block access to specific apps and websites according to your schedules.\n\nTap \"I Agree\" to proceed to your Settings and enable it.</string>
     <string name="accessibility_consent_agree">I Agree</string>
     <string name="accessibility_consent_deny">Not Now</string>
 
@@ -91,7 +91,7 @@
     <string name="friction_gate_weekly_stats">This week: %1$d words \u00b7 ~%2$d min typing</string>
 
     <!-- Permissions Screen -->
-    <string name="permissions_info">These permissions are needed for ReDD Block to function properly.</string>
+    <string name="permissions_info">These permissions are needed for Fristed to function properly.</string>
     <string name="accessibility_service">Accessibility Service</string>
     <string name="accessibility_service_desc">Required to detect and block apps and websites</string>
     <string name="notifications">Notifications</string>
@@ -139,7 +139,7 @@
     <string name="start_schedule_button">Start schedule: %s</string>
 
     <!-- Accessibility Service config -->
-    <string name="accessibility_service_label">ReDD Block</string>
+    <string name="accessibility_service_label">Fristed</string>
     <string name="accessibility_service_summary">Monitors app launches and browser navigation to enforce blocking schedules.</string>
     
     <!-- Backup -->

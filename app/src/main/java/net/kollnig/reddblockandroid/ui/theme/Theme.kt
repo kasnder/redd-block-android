@@ -85,7 +85,7 @@ private val DarkColorScheme = darkColorScheme(
 )
 
 @Composable
-fun ReDDBlockAndroidTheme(
+fun FristedAndroidTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {

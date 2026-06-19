@@ -324,7 +324,7 @@ fun HomeScreen(
                             text = { Text(stringResource(R.string.export_rules)) },
                             onClick = {
                                 isMenuExpanded = false
-                                exportLauncher.launch("reddblock_rules.json")
+                                exportLauncher.launch("fristed_rules.json")
                             },
                             leadingIcon = {
                                 Icon(Icons.Rounded.Upload, contentDescription = null)

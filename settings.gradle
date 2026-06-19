@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ReDD Block Android"
+rootProject.name = "Fristed Android"
 include ':app'
