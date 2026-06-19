@@ -3,57 +3,32 @@
     android:height="108dp"
     android:viewportWidth="1024"
     android:viewportHeight="1024">
-  <group android:scaleX="0.58"
-      android:scaleY="0.58"
-      android:translateX="215.04"
-      android:translateY="215.04">
-    <group>
-      <clip-path
-          android:pathData="M195,116h633v791h-633z"/>
-      <path
-          android:pathData="M195,116h633v791h-633z"
-          android:fillColor="#8a181b"
-          android:fillAlpha="0"/>
-      <path
-          android:pathData="M245,497h533v220h-533z"
-          android:fillColor="#9DC6A1"/>
-      <path
-          android:pathData="M280,652h355v111h-355z"
-          android:fillColor="#9DC6A1"/>
-      <path
-          android:pathData="M335,717h325v98h-325z"
-          android:fillColor="#9DC6A1"/>
-      <path
-          android:pathData="M322,699h325v98h-325z"
-          android:fillColor="#9DC6A1"/>
-      <path
-          android:pathData="M415,661h326v111h-326z"
-          android:fillColor="#9DC6A1"/>
-      <path
-          android:pathData="M503,686h181v111h-181z"
-          android:fillColor="#9DC6A1"/>
-      <path
-          android:pathData="M407,742h214v123h-214z"
-          android:fillColor="#9DC6A1"/>
-      <path
-          android:pathData="M310,231h403v149h-403z"
-          android:fillColor="#AAD5F7"/>
-      <path
-          android:pathData="M415,187h194v88h-194z"
-          android:fillColor="#AAD5F7"/>
-      <path
-          android:pathData="M446,163h132v47h-132z"
-          android:fillColor="#AAD5F7"/>
-      <path
-          android:pathData="M178,267h647v245h-647z"
-          android:fillColor="#AAD5F7"/>
-      <path
-          android:pathData="M511.5,141C516.6,141 521.4,142.8 525.3,146.1C597.3,208.9 701.3,259.6 788.4,259.6C792.3,259.6 796,261.2 798.7,263.9C801.5,266.6 803,270.3 803,274.2V551C803,643.2 771,711.2 720.3,763.1C669,815.8 597.3,853.2 516.9,881.2C513.7,882.3 510.3,882.2 507.2,881.1L506.6,880.9L502.8,879.6C423.7,851.9 353.3,814.9 302.7,763.1C252,711.1 220,643.2 220,551V274.2C220,270.3 221.5,266.6 224.3,263.9C226.9,261.3 230.5,259.7 234.2,259.7L234.6,259.6C321.7,259.6 426.1,208.5 497.7,146.1C501.5,142.8 506.4,141 511.5,141Z"
-          android:strokeLineJoin="round"
-          android:strokeWidth="50"
-          android:fillColor="#00000000"
-          android:strokeColor="#0A2D7B"
-          android:strokeLineCap="round"/>
-    </group>
+  <group
+      android:scaleX="1.0"
+      android:scaleY="1.0"
+      android:translateX="0"
+      android:translateY="0">
+    <path
+        android:fillColor="#EAF0F8"
+        android:pathData="M511.855,269L684.943,431.437V647.246H338.766V431.437L511.855,269Z" />
+    <path
+        android:fillColor="#00000000"
+        android:pathData="M569.551,647.246H684.943V431.437L511.855,269L338.766,431.437V647.246H454.158"
+        android:strokeColor="#1E2D3E"
+        android:strokeWidth="30"
+        android:strokeLineJoin="round"
+        android:strokeLineCap="round" />
+    <path
+        android:fillColor="#D4605A"
+        android:pathData="M354.64,701.591L335.6,693.899C328.909,691.196 321.293,694.428 318.589,701.12L310.897,720.159C308.193,726.851 311.426,734.467 318.118,737.17L337.157,744.863C343.849,747.566 351.465,744.334 354.168,737.642L361.861,718.603C364.564,711.911 361.332,704.295 354.64,701.591Z" />
+    <path
+        android:fillColor="#D4605A"
+        android:pathData="M402.338,755.052C413.332,755.052 422.245,745.898 422.245,734.606C422.245,723.314 413.332,714.16 402.338,714.16C391.343,714.16 382.43,723.314 382.43,734.606C382.43,745.898 391.343,755.052 402.338,755.052Z" />
+    <path
+        android:fillColor="#D4605A"
+        android:pathData="M622.759,748.545C633.326,748.545 641.893,740.223 641.893,729.958C641.893,719.693 633.326,711.371 622.759,711.371C612.192,711.371 603.625,719.693 603.625,729.958C603.625,740.223 612.192,748.545 622.759,748.545Z" />
+    <path
+        android:fillColor="#C0504A"
+        android:pathData="M704.792,699.504L685.535,693.983C678.768,692.042 671.708,695.955 669.767,702.723L664.246,721.979C662.305,728.747 666.218,735.806 672.986,737.747L692.243,743.269C699.01,745.209 706.07,741.296 708.011,734.528L713.532,715.272C715.473,708.504 711.56,701.445 704.792,699.504Z" />
   </group>
 </vector>
