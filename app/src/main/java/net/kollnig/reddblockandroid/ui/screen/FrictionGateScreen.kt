@@ -206,7 +206,7 @@ fun FrictionGateScreen(
                     progress = { (currentWordIndex.toFloat()) / totalCount },
                     modifier = Modifier.fillMaxWidth(),
                     trackColor = MaterialTheme.colorScheme.surfaceVariant,
-                    color = IndigoPrimary,
+                    color = MaterialTheme.colorScheme.tertiary,
                 )
 
                 Text(
@@ -287,7 +287,7 @@ fun FrictionGateScreen(
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(10.dp),
-                            color = IndigoPrimary.copy(alpha = 0.08f)
+                            color = MaterialTheme.colorScheme.tertiaryContainer
                         ) {
                             if (useChineseMode) {
                                 val cw = chineseWords[currentWordIndex]
@@ -303,7 +303,7 @@ fun FrictionGateScreen(
                                         style = MaterialTheme.typography.displaySmall,
                                         fontWeight = FontWeight.Bold,
                                         textAlign = TextAlign.Center,
-                                        color = IndigoPrimary
+                                        color = MaterialTheme.colorScheme.tertiary
                                     )
                                     Text(
                                         cw.character,
@@ -317,7 +317,7 @@ fun FrictionGateScreen(
                                             style = MaterialTheme.typography.titleMedium,
                                             fontWeight = FontWeight.SemiBold,
                                             textAlign = TextAlign.Center,
-                                            color = IndigoPrimary
+                                            color = MaterialTheme.colorScheme.tertiary
                                         )
                                     } else {
                                         TextButton(onClick = { pinyinManuallyRevealed = true }) {
@@ -330,7 +330,7 @@ fun FrictionGateScreen(
                                         Icon(
                                             Icons.Rounded.VolumeUp,
                                             contentDescription = "Listen",
-                                            tint = IndigoPrimary
+                                            tint = MaterialTheme.colorScheme.tertiary
                                         )
                                     }
                                 }
@@ -343,7 +343,7 @@ fun FrictionGateScreen(
                                     style = MaterialTheme.typography.headlineSmall,
                                     fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.Center,
-                                    color = IndigoPrimary
+                                    color = MaterialTheme.colorScheme.tertiary
                                 )
                             }
                         }
@@ -359,7 +359,7 @@ fun FrictionGateScreen(
                                 Text(
                                     if (useChineseMode) stringResource(R.string.friction_gate_pinyin_hint)
                                     else stringResource(R.string.type_here_hint),
-                                    color = TextHint
+                                    color = MaterialTheme.colorScheme.outline
                                 )
                             },
                             modifier = Modifier

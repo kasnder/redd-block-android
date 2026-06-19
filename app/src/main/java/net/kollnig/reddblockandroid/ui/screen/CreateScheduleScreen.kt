@@ -202,7 +202,7 @@ fun CreateScheduleScreen(
                             Icon(
                                 Icons.Rounded.Delete,
                                 contentDescription = stringResource(R.string.delete),
-                                tint = SoftRed
+                                tint = MaterialTheme.colorScheme.error
                             )
                         }
                     }
@@ -374,7 +374,7 @@ fun CreateScheduleScreen(
                                         Icons.Rounded.Close,
                                         contentDescription = stringResource(R.string.remove),
                                         modifier = Modifier.size(16.dp),
-                                        tint = TextHint
+                                        tint = MaterialTheme.colorScheme.outline
                                     )
                                 }
                             }
@@ -514,7 +514,7 @@ fun CreateScheduleScreen(
                                     else selectedDays + day
                                 },
                             shape = CircleShape,
-                            color = if (isSelected) DayChipSelected else MaterialTheme.colorScheme.surfaceVariant
+                            color = if (isSelected) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.surfaceVariant
                         ) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Text(
@@ -555,7 +555,7 @@ fun CreateScheduleScreen(
                             "$frictionWordCount",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
-                            color = IndigoPrimary
+                            color = MaterialTheme.colorScheme.tertiary
                         )
                     }
                     Slider(
@@ -565,8 +565,8 @@ fun CreateScheduleScreen(
                         steps = 48,
                         modifier = Modifier.fillMaxWidth(),
                         colors = SliderDefaults.colors(
-                            thumbColor = IndigoPrimary,
-                            activeTrackColor = IndigoPrimary
+                            thumbColor = MaterialTheme.colorScheme.tertiary,
+                            activeTrackColor = MaterialTheme.colorScheme.tertiary
                         )
                     )
                     Text(
@@ -719,7 +719,7 @@ fun CreateScheduleScreen(
                 }) {
                     Text(
                         stringResource(R.string.delete),
-                        color = SoftRed,
+                        color = MaterialTheme.colorScheme.error,
                         fontWeight = FontWeight.Bold
                     )
                 }
@@ -857,7 +857,7 @@ private fun AppPickerDialog(
                             .height(200.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = IndigoPrimary)
+                        CircularProgressIndicator(color = MaterialTheme.colorScheme.tertiary)
                     }
                 } else {
                     LazyColumn(
@@ -883,7 +883,7 @@ private fun AppPickerDialog(
                                         else selected.add(appInfo.packageName)
                                     },
                                     colors = CheckboxDefaults.colors(
-                                        checkedColor = IndigoPrimary
+                                        checkedColor = MaterialTheme.colorScheme.tertiary
                                     )
                                 )
                                 Column(modifier = Modifier.weight(1f)) {

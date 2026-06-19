@@ -2,46 +2,63 @@ package net.kollnig.reddblockandroid.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
-// ── iOS-matching palette ────────────────────────────────────────
+// Canonical ReDD palette shared with desktop/iOS styling.
 
-// Primary – slate / indigo blue
-val SlateBlue = Color(0xFF4A5568)
-val SlateBlueLight = Color(0xFF718096)
-val IndigoPrimary = Color(0xFF5A67D8)
-val IndigoPrimaryLight = Color(0xFF7F8CF5)
-
-// Dark navy for buttons / accents
-val DarkNavy = Color(0xFF2D3748)
-val DarkNavyLight = Color(0xFF4A5568)
-
-// Backgrounds
-val CoolGrey = Color(0xFFEDF2F7)       // main light bg
 val White = Color(0xFFFFFFFF)
-val SurfaceLight = Color(0xFFF7FAFC)   // slightly warmer card bg
+val PrimaryOnDark = Color(0xFF0C1620)
 
-// Active / green badge
-val BadgeGreen = Color(0xFF48BB78)
-val BadgeGreenBg = Color(0xFFE6FFEC)
+// Light mode tokens
+val ReddCream = Color(0xFFFAF8F5)
+val ReddWarmGrey = Color(0xFFF1EEE9)
+val ReddCard = Color(0xFFFFFFFF)
+val ReddNavy = Color(0xFF1E2D3E)
+val ReddBody = Color(0xFF2C2C35)
+val ReddMuted = Color(0xFF696977)
+val ReddSubtle = Color(0xFF8A8A96)
+val ReddBorder = Color(0xFFE1DCD6)
+val ReddTeal = Color(0xFF2A9D8F)
+val ReddTealHover = Color(0xFF21806F)
+val ReddTealSoft = Color(0xFFE5F5F3)
+val ReddCoral = Color(0xFFD4605A)
+val ReddCoralSoft = Color(0xFFFAEBEA)
+val ReddBlue = Color(0xFF4A90E2)
+val ReddBlueSoft = Color(0xFFE8F1FA)
 
-// Chip tag colours (website chips in edit screen)
-val ChipGreen = Color(0xFFE6FFEC)
-val ChipGreenText = Color(0xFF276749)
+// Dark mode tokens
+val ReddDarkCanvas = Color(0xFF14202C)
+val ReddDarkWarmGrey = Color(0xFF1A2735)
+val ReddDarkCard = Color(0xFF1E2D3E)
+val ReddDarkTextPrimary = Color(0xFFF5F0E8)
+val ReddDarkTextSecondary = Color(0xFFE6E2D8)
+val ReddDarkMuted = Color(0xFF9AA3B0)
+val ReddDarkBorder = Color(0x1AFFFFFF)
+val ReddDarkTeal = Color(0xFF399E90)
+val ReddDarkTealHover = Color(0xFF4EC0B0)
+val ReddDarkTealSoft = Color(0x29399E90)
+val ReddDarkCoral = Color(0xFFE07B75)
+val ReddDarkCoralSoft = Color(0x29D4605A)
+val ReddDarkElement = Color(0x0AFFFFFF)
 
-// Error / destructive
-val SoftRed = Color(0xFFE53E3E)
-val SoftRedBg = Color(0xFFFFF5F5)
-
-// On-surfaces
-val TextPrimary = Color(0xFF1A202C)
-val TextSecondary = Color(0xFF718096)
-val TextHint = Color(0xFFA0AEC0)
-
-// Day-chip selected fill
-val DayChipSelected = Color(0xFF5A67D8)
-val DayChipUnselected = Color(0xFFE2E8F0)
-
-// ── Dark theme equivalents ──────────────────────────────────────
-
-val DarkBackground = Color(0xFF1A202C)
-val DarkSurface = Color(0xFF2D3748)
-val DarkSurfaceHigh = Color(0xFF4A5568)
+// Legacy aliases kept so screen code can refresh without layout changes.
+val SlateBlue = ReddMuted
+val SlateBlueLight = ReddDarkMuted
+val IndigoPrimary = ReddTeal
+val IndigoPrimaryLight = ReddDarkTeal
+val DarkNavy = ReddNavy
+val DarkNavyLight = ReddDarkTextPrimary
+val CoolGrey = ReddCream
+val SurfaceLight = ReddWarmGrey
+val BadgeGreen = ReddTeal
+val BadgeGreenBg = ReddTealSoft
+val ChipGreen = ReddTealSoft
+val ChipGreenText = ReddTealHover
+val SoftRed = ReddCoral
+val SoftRedBg = ReddCoralSoft
+val TextPrimary = ReddNavy
+val TextSecondary = ReddBody
+val TextHint = ReddSubtle
+val DayChipSelected = ReddTeal
+val DayChipUnselected = ReddWarmGrey
+val DarkBackground = ReddDarkCanvas
+val DarkSurface = ReddDarkCard
+val DarkSurfaceHigh = ReddDarkWarmGrey

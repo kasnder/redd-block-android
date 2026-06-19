@@ -160,14 +160,14 @@ fun HomeScreen(
                         Surface(
                             modifier = Modifier.size(40.dp),
                             shape = CircleShape,
-                            color = SoftRed.copy(alpha = 0.15f)
+                            color = MaterialTheme.colorScheme.errorContainer
                         ) {
                             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                                 Icon(
                                     Icons.Rounded.Warning,
                                     contentDescription = null,
                                     modifier = Modifier.size(20.dp),
-                                    tint = SoftRed
+                                    tint = MaterialTheme.colorScheme.error
                                 )
                             }
                         }
@@ -375,7 +375,7 @@ private fun ScheduleItem(
             .shadow(2.dp, RoundedCornerShape(16.dp)),
         shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = if (isActive) BorderStroke(1.5.dp, IndigoPrimary.copy(alpha = 0.4f)) else null
+        border = if (isActive) BorderStroke(1.5.dp, MaterialTheme.colorScheme.tertiary.copy(alpha = 0.35f)) else null
     ) {
         Row(
             modifier = Modifier
@@ -388,7 +388,7 @@ private fun ScheduleItem(
             Surface(
                 modifier = Modifier.size(40.dp),
                 shape = CircleShape,
-                color = if (isActive) IndigoPrimary.copy(alpha = 0.1f) else MaterialTheme.colorScheme.surfaceVariant
+                color = if (isActive) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surfaceVariant
             ) {
                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("🚫", fontSize = 18.sp)
@@ -409,14 +409,14 @@ private fun ScheduleItem(
                         Spacer(Modifier.width(8.dp))
                         Surface(
                             shape = RoundedCornerShape(4.dp),
-                            color = BadgeGreen.copy(alpha = 0.15f)
+                            color = MaterialTheme.colorScheme.tertiaryContainer
                         ) {
                             Text(
                                 stringResource(R.string.always_badge),
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                color = BadgeGreen,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
                                 fontSize = 10.sp
                             )
                         }
@@ -448,8 +448,8 @@ private fun ScheduleItem(
                 checked = schedule.isEnabled,
                 onCheckedChange = { onToggle() },
                 colors = SwitchDefaults.colors(
-                    checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                    checkedTrackColor = IndigoPrimary,
+                    checkedThumbColor = MaterialTheme.colorScheme.onTertiary,
+                    checkedTrackColor = MaterialTheme.colorScheme.tertiary,
                     uncheckedThumbColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant
                 )
