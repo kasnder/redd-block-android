@@ -24,6 +24,7 @@ import androidx.navigation.navArgument
 import net.kollnig.reddblockandroid.assistant.ScheduleProposal
 import net.kollnig.reddblockandroid.data.Schedule
 import net.kollnig.reddblockandroid.data.ScheduleTiming
+import net.kollnig.reddblockandroid.ui.screen.AssistantPromptSettingsScreen
 import net.kollnig.reddblockandroid.ui.screen.CreateScheduleScreen
 import net.kollnig.reddblockandroid.ui.screen.AssistantScreen
 import net.kollnig.reddblockandroid.ui.screen.FrictionGateScreen
@@ -53,6 +54,8 @@ fun AppNavigation() {
     var pendingFrictionAction by remember { mutableStateOf<(() -> Unit)?>(null) }
     var frictionWordCount by remember { mutableIntStateOf(15) }
     var draftSchedule by remember { mutableStateOf<Schedule?>(null) }
+    var assistantSettingsRevision by remember { mutableIntStateOf(0) }
+    var assistantCopyAfterSettingsRevision by remember { mutableIntStateOf(0) }
 
     Scaffold(
         bottomBar = {
@@ -116,6 +119,29 @@ fun AppNavigation() {
                     onReviewAmendment = { amendment ->
                         draftSchedule = amendment.updatedSchedule
                         navController.navigate("edit_schedule/${amendment.scheduleId}")
+                    },
+                    onOpenPromptSettings = { copyAfterSave ->
+                        navController.navigate("assistant_prompt_settings/$copyAfterSave")
+                    },
+                    settingsRevision = assistantSettingsRevision,
+                    copyAfterSettingsRevision = assistantCopyAfterSettingsRevision
+                )
+            }
+
+            composable(
+                "assistant_prompt_settings/{copyAfterSave}",
+                arguments = listOf(navArgument("copyAfterSave") { type = NavType.BoolType })
+            ) { navEntry ->
+                val copyAfterSave = navEntry.arguments?.getBoolean("copyAfterSave") == true
+                AssistantPromptSettingsScreen(
+                    copyAfterSave = copyAfterSave,
+                    onBack = { navController.popBackStack() },
+                    onSaveComplete = { shouldCopy ->
+                        assistantSettingsRevision += 1
+                        navController.popBackStack()
+                        if (shouldCopy) {
+                            assistantCopyAfterSettingsRevision += 1
+                        }
                     }
                 )
             }

@@ -3,6 +3,7 @@ package net.kollnig.reddblockandroid.ui.screen
 import android.Manifest
 import android.content.ActivityNotFoundException
 import android.content.Context
+import android.content.SharedPreferences
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -10,17 +11,23 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.ContentPaste
+import androidx.compose.material.icons.rounded.ExpandLess
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -40,93 +47,41 @@ import net.kollnig.reddblockandroid.data.ScheduleTiming
 @Composable
 fun AssistantScreen(
     onReviewProposal: (ScheduleProposal) -> Unit,
-    onReviewAmendment: (ScheduleAmendmentProposal) -> Unit
+    onReviewAmendment: (ScheduleAmendmentProposal) -> Unit,
+    onOpenPromptSettings: (copyAfterSave: Boolean) -> Unit,
+    settingsRevision: Int = 0,
+    copyAfterSettingsRevision: Int = 0
 ) {
     val context = LocalContext.current
     val clipboardManager = LocalClipboardManager.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     val contextProvider = remember { ContextProvider(context) }
-    val activityRecognitionManager = remember { ActivityRecognitionManager(context) }
-    val wifiContextProvider = remember { WifiContextProvider(context) }
     val screenPrefs = remember {
         context.getSharedPreferences("assistant_prompt_flow", Context.MODE_PRIVATE)
     }
 
-    var userProblem by remember { mutableStateOf(screenPrefs.getString(KEY_OPENING_MESSAGE, "") ?: "") }
-    var goals by remember { mutableStateOf(screenPrefs.getString(KEY_GOALS, "") ?: "") }
-    var usagePermissionAvailable by remember { mutableStateOf(contextProvider.hasUsageStatsPermission()) }
-    var options by remember {
-        mutableStateOf(
-            PromptOptions(
-                includeExistingSchedules = screenPrefs.getBoolean(KEY_INCLUDE_SCHEDULES, true),
-                includeTopUsedApps = screenPrefs.getBoolean(KEY_INCLUDE_TOP_USED, usagePermissionAvailable),
-                includeScheduledApps = screenPrefs.getBoolean(KEY_INCLUDE_SCHEDULED_APPS, true),
-                includeAllInstalledApps = screenPrefs.getBoolean(KEY_INCLUDE_ALL_APPS, false),
-                includeUsageStats = screenPrefs.getBoolean(KEY_INCLUDE_USAGE, false),
-                includeMotionContext = screenPrefs.getBoolean(KEY_INCLUDE_MOTION, false),
-                includeWifiContext = screenPrefs.getBoolean(KEY_INCLUDE_WIFI, false),
-                includeSavedWifiNetworks = screenPrefs.getBoolean(KEY_INCLUDE_SAVED_WIFI, false),
-                includeGoals = true
-            )
-        )
-    }
+    var promptSettings by remember { mutableStateOf(loadPromptSettings(screenPrefs, contextProvider.hasUsageStatsPermission())) }
     var parsedActions by remember { mutableStateOf<List<ImportedAssistantAction>>(emptyList()) }
     var importError by remember { mutableStateOf<String?>(null) }
     var isGenerating by remember { mutableStateOf(false) }
-    var showSettings by remember { mutableStateOf(false) }
-    var pendingCopyAfterSettings by remember { mutableStateOf(false) }
-    var hasSeenSettings by remember { mutableStateOf(screenPrefs.getBoolean(KEY_HAS_SEEN_SETTINGS, false)) }
+    var previewPrompt by remember { mutableStateOf<String?>(null) }
 
-    val usageSettingsLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) {
-        usagePermissionAvailable = contextProvider.hasUsageStatsPermission()
-        if (usagePermissionAvailable) {
-            options = options.copy(includeTopUsedApps = true)
-        }
-    }
-    val motionPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        options = options.copy(includeMotionContext = granted)
-        if (granted) activityRecognitionManager.startUpdates()
-        if (!granted) scope.launch { snackbarHostState.showSnackbar("Motion permission was not granted.") }
-    }
-    val wifiPermissionLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        options = options.copy(includeWifiContext = granted, includeSavedWifiNetworks = granted)
-        if (!granted) scope.launch { snackbarHostState.showSnackbar("Wi-Fi context permission was not granted.") }
-    }
-
-    fun saveSettings() {
-        screenPrefs.edit()
-            .putBoolean(KEY_HAS_SEEN_SETTINGS, true)
-            .putString(KEY_OPENING_MESSAGE, userProblem)
-            .putString(KEY_GOALS, goals)
-            .putBoolean(KEY_INCLUDE_SCHEDULES, options.includeExistingSchedules)
-            .putBoolean(KEY_INCLUDE_TOP_USED, options.includeTopUsedApps)
-            .putBoolean(KEY_INCLUDE_SCHEDULED_APPS, options.includeScheduledApps)
-            .putBoolean(KEY_INCLUDE_ALL_APPS, options.includeAllInstalledApps)
-            .putBoolean(KEY_INCLUDE_USAGE, options.includeUsageStats)
-            .putBoolean(KEY_INCLUDE_MOTION, options.includeMotionContext)
-            .putBoolean(KEY_INCLUDE_WIFI, options.includeWifiContext)
-            .putBoolean(KEY_INCLUDE_SAVED_WIFI, options.includeSavedWifiNetworks)
-            .apply()
-        hasSeenSettings = true
+    fun refreshPromptSettings() {
+        promptSettings = loadPromptSettings(screenPrefs, contextProvider.hasUsageStatsPermission())
     }
 
     fun copyPrompt() {
+        val settings = promptSettings
         isGenerating = true
         try {
             val prompt = contextProvider.buildPrompt(
-                userProblem = userProblem.trim(),
-                goals = goals.trim(),
-                options = options
+                userProblem = settings.openingMessage.trim(),
+                goals = settings.goals.trim(),
+                options = settings.options
             )
             clipboardManager.setText(AnnotatedString(prompt))
-            scope.launch { snackbarHostState.showSnackbar("Prompt copied.") }
+            scope.launch { snackbarHostState.showSnackbar("Prompt copied. Paste it into your AI chat and press send.") }
         } catch (e: Exception) {
             scope.launch { snackbarHostState.showSnackbar(e.message ?: "Could not copy prompt.") }
         } finally {
@@ -135,12 +90,27 @@ fun AssistantScreen(
     }
 
     fun copyPromptWithFirstRunCheck() {
-        if (!hasSeenSettings) {
-            pendingCopyAfterSettings = true
-            showSettings = true
+        if (!promptSettings.hasSeenSettings) {
+            onOpenPromptSettings(true)
             return
         }
         copyPrompt()
+    }
+
+    fun previewPrompt() {
+        val settings = promptSettings
+        isGenerating = true
+        try {
+            previewPrompt = contextProvider.buildPrompt(
+                userProblem = settings.openingMessage.trim(),
+                goals = settings.goals.trim(),
+                options = settings.options
+            )
+        } catch (e: Exception) {
+            scope.launch { snackbarHostState.showSnackbar(e.message ?: "Could not build prompt preview.") }
+        } finally {
+            isGenerating = false
+        }
     }
 
     fun importReply(replyText: String) {
@@ -167,6 +137,17 @@ fun AssistantScreen(
         importReply(text)
     }
 
+    LaunchedEffect(settingsRevision) {
+        refreshPromptSettings()
+    }
+
+    LaunchedEffect(copyAfterSettingsRevision) {
+        if (copyAfterSettingsRevision > 0) {
+            refreshPromptSettings()
+            copyPrompt()
+        }
+    }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -174,7 +155,7 @@ fun AssistantScreen(
             TopAppBar(
                 title = { Text("AI Helper", fontWeight = FontWeight.Bold) },
                 actions = {
-                    IconButton(onClick = { showSettings = true }) {
+                    IconButton(onClick = { onOpenPromptSettings(false) }) {
                         Icon(Icons.Rounded.Settings, contentDescription = "Prompt settings")
                     }
                 },
@@ -195,17 +176,26 @@ fun AssistantScreen(
             item {
                 SectionSurface {
                     Text(
-                        "Configure your digital home with your favourite AI chatbot.",
+                        "Create schedules with your AI chatbot.",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        "Step 1: copy a ReDD prompt and paste it into ChatGPT, Claude, Gemini, or another AI you like. Talk there normally about schedules, routines, or digital self-control.",
+                        "1. Copy the ReDD prompt, paste it into ChatGPT, Claude, Gemini, or another AI chat, then press Enter or Send.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Text(
-                        "Step 2: when the AI suggests ReDD changes, copy its full reply and paste it back here. ReDD will show the proposed schedules for review before saving.",
+                        "2. Keep talking with the AI there until it proposes a schedule for ReDD Block.",
                         style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "3. Copy the AI's full final reply and paste it back here. ReDD will show the proposed schedules for review before saving.",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Text(
+                        "Tip: copy the AI's whole reply, including the code block. ReDD finds the schedule inside it.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
@@ -219,7 +209,14 @@ fun AssistantScreen(
                     ) {
                         Icon(Icons.Rounded.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Step 1: Copy prompt")
+                        Text("Copy prompt for AI chat")
+                    }
+                    TextButton(
+                        onClick = { previewPrompt() },
+                        enabled = !isGenerating,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Preview what will be copied")
                     }
                     Button(
                         onClick = { pasteAndImportReply() },
@@ -227,7 +224,7 @@ fun AssistantScreen(
                     ) {
                         Icon(Icons.Rounded.ContentPaste, contentDescription = null, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(8.dp))
-                        Text("Step 2: Paste AI reply")
+                        Text("Paste final AI reply")
                     }
                 }
             }
@@ -262,177 +259,381 @@ fun AssistantScreen(
         }
     }
 
-    if (showSettings) {
-        AlertDialog(
-            onDismissRequest = {
-                showSettings = false
-                pendingCopyAfterSettings = false
+    previewPrompt?.let { prompt ->
+        PromptPreviewSheet(
+            prompt = prompt,
+            onCopy = {
+                clipboardManager.setText(AnnotatedString(prompt))
+                previewPrompt = null
+                scope.launch { snackbarHostState.showSnackbar("Prompt copied. Paste it into your AI chat and press send.") }
             },
-            title = { Text("Prompt settings", fontWeight = FontWeight.Bold) },
-            text = {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.heightIn(max = 520.dp)
+            onClose = { previewPrompt = null }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AssistantPromptSettingsScreen(
+    copyAfterSave: Boolean,
+    onBack: () -> Unit,
+    onSaveComplete: (copyAfterSave: Boolean) -> Unit
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val contextProvider = remember { ContextProvider(context) }
+    val activityRecognitionManager = remember { ActivityRecognitionManager(context) }
+    val wifiContextProvider = remember { WifiContextProvider(context) }
+    val screenPrefs = remember {
+        context.getSharedPreferences("assistant_prompt_flow", Context.MODE_PRIVATE)
+    }
+    val initialSettings = remember {
+        loadPromptSettings(screenPrefs, contextProvider.hasUsageStatsPermission())
+    }
+
+    var openingMessage by rememberSaveable { mutableStateOf(initialSettings.openingMessage) }
+    var goals by rememberSaveable { mutableStateOf(initialSettings.goals) }
+    var options by remember { mutableStateOf(initialSettings.options) }
+    var usagePermissionAvailable by remember { mutableStateOf(contextProvider.hasUsageStatsPermission()) }
+    var pendingUsagePermissionTarget by remember { mutableStateOf<UsagePermissionTarget?>(null) }
+    var pendingWifiPermissionTarget by remember { mutableStateOf<WifiPermissionTarget?>(null) }
+    var advancedExpanded by rememberSaveable { mutableStateOf(false) }
+
+    val usageSettingsLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        usagePermissionAvailable = contextProvider.hasUsageStatsPermission()
+        if (usagePermissionAvailable) {
+            options = when (pendingUsagePermissionTarget) {
+                UsagePermissionTarget.TOP_USED -> options.copy(includeTopUsedApps = true)
+                UsagePermissionTarget.USAGE_STATS -> options.copy(includeUsageStats = true)
+                null -> options
+            }
+        }
+        pendingUsagePermissionTarget = null
+    }
+    val motionPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        options = options.copy(includeMotionContext = granted)
+        if (granted) activityRecognitionManager.startUpdates()
+        if (!granted) scope.launch { snackbarHostState.showSnackbar("Motion permission was not granted.") }
+    }
+    val wifiPermissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            options = when (pendingWifiPermissionTarget) {
+                WifiPermissionTarget.CURRENT -> options.copy(includeWifiContext = true)
+                WifiPermissionTarget.SAVED -> options.copy(includeSavedWifiNetworks = true)
+                null -> options
+            }
+        } else {
+            scope.launch { snackbarHostState.showSnackbar("Wi-Fi context permission was not granted.") }
+        }
+        pendingWifiPermissionTarget = null
+    }
+
+    fun requestUsagePermission(target: UsagePermissionTarget) {
+        pendingUsagePermissionTarget = target
+        try {
+            usageSettingsLauncher.launch(contextProvider.usageSettingsIntent())
+        } catch (_: ActivityNotFoundException) {
+            pendingUsagePermissionTarget = null
+            scope.launch { snackbarHostState.showSnackbar("Could not open Usage Access settings.") }
+        }
+    }
+
+    fun requestWifiPermission(target: WifiPermissionTarget) {
+        pendingWifiPermissionTarget = target
+        wifiPermissionLauncher.launch(wifiContextProvider.runtimePermission())
+    }
+
+    Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        topBar = {
+            TopAppBar(
+                title = { Text("Prompt settings", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background
+                )
+            )
+        },
+        bottomBar = {
+            Surface(color = MaterialTheme.colorScheme.background) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    item {
-                        Text(
-                            "Choose what ReDD includes in the prompt before you paste it into your favourite AI chatbot.",
-                            style = MaterialTheme.typography.bodyMedium
-                        )
+                    OutlinedButton(
+                        onClick = onBack,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Cancel")
                     }
-                    item {
-                        OutlinedTextField(
-                            value = userProblem,
-                            onValueChange = { userProblem = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Optional first question") },
-                            placeholder = { Text("Leave blank for starter options") },
-                            minLines = 2,
-                            maxLines = 4
-                        )
+                    Button(
+                        onClick = {
+                            savePromptSettings(
+                                prefs = screenPrefs,
+                                settings = AssistantPromptSettings(
+                                    hasSeenSettings = true,
+                                    openingMessage = openingMessage,
+                                    goals = goals,
+                                    options = options
+                                )
+                            )
+                            onSaveComplete(copyAfterSave)
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text(if (copyAfterSave) "Save and copy" else "Save")
                     }
-                    item {
-                        OutlinedTextField(
-                            value = goals,
-                            onValueChange = { goals = it },
-                            modifier = Modifier.fillMaxWidth(),
-                            label = { Text("Goal notes") },
-                            minLines = 2,
-                            maxLines = 4
-                        )
-                    }
-                    item {
-                        PromptOptionSwitch(
-                            title = "Existing schedules",
-                            description = "Names, blocked apps/sites, timing, friction, pause duration, and context conditions.",
-                            checked = options.includeExistingSchedules,
-                            onCheckedChange = { options = options.copy(includeExistingSchedules = it) }
-                        )
-                    }
-                    item {
-                        PromptOptionSwitch(
-                            title = "Top 20 used apps",
-                            description = if (usagePermissionAvailable) "Default app list for recommendations." else "Needs Usage Access permission.",
-                            checked = options.includeTopUsedApps,
-                            onCheckedChange = { enabled ->
-                                if (!enabled || usagePermissionAvailable) {
-                                    options = options.copy(includeTopUsedApps = enabled)
-                                } else {
-                                    try {
-                                        usageSettingsLauncher.launch(contextProvider.usageSettingsIntent())
-                                    } catch (_: ActivityNotFoundException) {
-                                        scope.launch { snackbarHostState.showSnackbar("Could not open Usage Access settings.") }
-                                    }
-                                }
-                            }
-                        )
-                    }
-                    item {
-                        PromptOptionSwitch(
-                            title = "Apps already in schedules",
-                            description = "Keeps existing blocked apps available even if they are not in today's top usage.",
-                            checked = options.includeScheduledApps,
-                            onCheckedChange = { options = options.copy(includeScheduledApps = it) }
-                        )
-                    }
-                    item {
-                        PromptOptionSwitch(
-                            title = "All installed apps",
-                            description = "Opt-in full app inventory for broader recommendations.",
-                            checked = options.includeAllInstalledApps,
-                            onCheckedChange = { options = options.copy(includeAllInstalledApps = it) }
-                        )
-                    }
-                    item {
-                        PromptOptionSwitch(
-                            title = "Usage stats",
-                            description = "App labels, package names, minutes used, and time-of-day buckets.",
-                            checked = options.includeUsageStats,
-                            onCheckedChange = { enabled ->
-                                if (!enabled || usagePermissionAvailable) {
-                                    options = options.copy(includeUsageStats = enabled)
-                                } else {
-                                    try {
-                                        usageSettingsLauncher.launch(contextProvider.usageSettingsIntent())
-                                    } catch (_: ActivityNotFoundException) {
-                                        scope.launch { snackbarHostState.showSnackbar("Could not open Usage Access settings.") }
-                                    }
-                                }
-                            }
-                        )
-                    }
-                    item {
-                        PromptOptionSwitch(
-                            title = "Motion context",
-                            description = "Recent Android activity such as still, walking, cycling, running, or in vehicle.",
-                            checked = options.includeMotionContext,
-                            onCheckedChange = { enabled ->
-                                if (!enabled) {
-                                    options = options.copy(includeMotionContext = false)
-                                } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || context.checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
-                                    options = options.copy(includeMotionContext = true)
-                                    activityRecognitionManager.startUpdates()
-                                } else {
-                                    motionPermissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
-                                }
-                            }
-                        )
-                    }
-                    item {
-                        PromptOptionSwitch(
-                            title = "Wi-Fi context",
-                            description = "Current Wi-Fi name for home, work, or campus schedules.",
-                            checked = options.includeWifiContext,
-                            onCheckedChange = { enabled ->
-                                if (!enabled) {
-                                    options = options.copy(includeWifiContext = false)
-                                } else if (wifiContextProvider.hasPermission()) {
-                                    options = options.copy(includeWifiContext = true)
-                                } else {
-                                    wifiPermissionLauncher.launch(wifiContextProvider.runtimePermission())
-                                }
-                            }
-                        )
-                    }
-                    item {
-                        PromptOptionSwitch(
-                            title = "Saved Wi-Fi networks",
-                            description = "Saved labels and SSIDs used for context-triggered schedules.",
-                            checked = options.includeSavedWifiNetworks,
-                            onCheckedChange = { enabled ->
-                                if (!enabled) {
-                                    options = options.copy(includeSavedWifiNetworks = false)
-                                } else if (wifiContextProvider.hasPermission()) {
-                                    options = options.copy(includeSavedWifiNetworks = true)
-                                } else {
-                                    wifiPermissionLauncher.launch(wifiContextProvider.runtimePermission())
-                                }
-                            }
-                        )
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = {
-                    saveSettings()
-                    showSettings = false
-                    if (pendingCopyAfterSettings) {
-                        pendingCopyAfterSettings = false
-                        copyPrompt()
-                    }
-                }) {
-                    Text(if (pendingCopyAfterSettings) "Save and copy" else "Save")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    showSettings = false
-                    pendingCopyAfterSettings = false
-                }) {
-                    Text("Cancel")
                 }
             }
-        )
+        }
+    ) { innerPadding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(vertical = 12.dp)
+        ) {
+            item {
+                Text(
+                    "Choose what ReDD includes before you copy the prompt and send it in your AI chat.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            item {
+                SectionSurface {
+                    Text("About you", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    OutlinedTextField(
+                        value = openingMessage,
+                        onValueChange = { openingMessage = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Optional first question") },
+                        placeholder = { Text("Leave blank and the AI will ask one focused question") },
+                        minLines = 2,
+                        maxLines = 4
+                    )
+                    OutlinedTextField(
+                        value = goals,
+                        onValueChange = { goals = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text("Goal notes") },
+                        minLines = 2,
+                        maxLines = 4
+                    )
+                }
+            }
+            item {
+                SectionSurface {
+                    Text("What ReDD includes", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                    PromptOptionSwitch(
+                        title = "Existing schedules",
+                        description = "Names, blocked apps/sites, timing, friction, pause duration, and context conditions.",
+                        checked = options.includeExistingSchedules,
+                        onCheckedChange = { options = options.copy(includeExistingSchedules = it) }
+                    )
+                    PromptOptionSwitch(
+                        title = "Top 20 used apps",
+                        description = if (usagePermissionAvailable) "Default app list for recommendations." else "Needs Usage Access permission.",
+                        checked = options.includeTopUsedApps,
+                        onCheckedChange = { enabled ->
+                            if (!enabled || usagePermissionAvailable) {
+                                options = options.copy(includeTopUsedApps = enabled)
+                            } else {
+                                requestUsagePermission(UsagePermissionTarget.TOP_USED)
+                            }
+                        }
+                    )
+                    PromptOptionSwitch(
+                        title = "Apps already in schedules",
+                        description = "Keeps existing blocked apps available even if they are not in today's top usage.",
+                        checked = options.includeScheduledApps,
+                        onCheckedChange = { options = options.copy(includeScheduledApps = it) }
+                    )
+                }
+            }
+            item {
+                ExpandableSection(
+                    title = "Advanced",
+                    expanded = advancedExpanded,
+                    onExpandedChange = { advancedExpanded = it }
+                ) {
+                    PromptOptionSwitch(
+                        title = "All installed apps",
+                        description = "Opt-in full app inventory for broader recommendations.",
+                        checked = options.includeAllInstalledApps,
+                        onCheckedChange = { options = options.copy(includeAllInstalledApps = it) }
+                    )
+                    PromptOptionSwitch(
+                        title = "Usage stats",
+                        description = "App labels, package names, minutes used, and time-of-day buckets.",
+                        checked = options.includeUsageStats,
+                        onCheckedChange = { enabled ->
+                            if (!enabled || usagePermissionAvailable) {
+                                options = options.copy(includeUsageStats = enabled)
+                            } else {
+                                requestUsagePermission(UsagePermissionTarget.USAGE_STATS)
+                            }
+                        }
+                    )
+                    PromptOptionSwitch(
+                        title = "Motion context",
+                        description = "Recent Android activity such as still, walking, cycling, running, or in vehicle.",
+                        checked = options.includeMotionContext,
+                        onCheckedChange = { enabled ->
+                            if (!enabled) {
+                                options = options.copy(includeMotionContext = false)
+                            } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q || context.checkSelfPermission(Manifest.permission.ACTIVITY_RECOGNITION) == android.content.pm.PackageManager.PERMISSION_GRANTED) {
+                                options = options.copy(includeMotionContext = true)
+                                activityRecognitionManager.startUpdates()
+                            } else {
+                                motionPermissionLauncher.launch(Manifest.permission.ACTIVITY_RECOGNITION)
+                            }
+                        }
+                    )
+                    PromptOptionSwitch(
+                        title = "Wi-Fi context",
+                        description = "Current Wi-Fi name for home, work, or campus schedules.",
+                        checked = options.includeWifiContext,
+                        onCheckedChange = { enabled ->
+                            if (!enabled) {
+                                options = options.copy(includeWifiContext = false)
+                            } else if (wifiContextProvider.hasPermission()) {
+                                options = options.copy(includeWifiContext = true)
+                            } else {
+                                requestWifiPermission(WifiPermissionTarget.CURRENT)
+                            }
+                        }
+                    )
+                    PromptOptionSwitch(
+                        title = "Saved Wi-Fi networks",
+                        description = "Saved labels and SSIDs used for context-triggered schedules.",
+                        checked = options.includeSavedWifiNetworks,
+                        onCheckedChange = { enabled ->
+                            if (!enabled) {
+                                options = options.copy(includeSavedWifiNetworks = false)
+                            } else if (wifiContextProvider.hasPermission()) {
+                                options = options.copy(includeSavedWifiNetworks = true)
+                            } else {
+                                requestWifiPermission(WifiPermissionTarget.SAVED)
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PromptPreviewSheet(
+    prompt: String,
+    onCopy: () -> Unit,
+    onClose: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onClose,
+        sheetState = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .fillMaxHeight(0.92f)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                "This is exactly what gets copied to your clipboard. Nothing leaves your device until you paste it into another app.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
+                item {
+                    SelectionContainer {
+                        Text(
+                            prompt,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
+                }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedButton(
+                    onClick = onClose,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text("Close")
+                }
+                Button(
+                    onClick = onCopy,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(Icons.Rounded.ContentCopy, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text("Copy now")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandableSection(
+    title: String,
+    expanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    SectionSurface {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.weight(1f)
+            )
+            IconButton(onClick = { onExpandedChange(!expanded) }) {
+                Icon(
+                    imageVector = if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    contentDescription = if (expanded) "Collapse" else "Expand"
+                )
+            }
+        }
+        if (expanded) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp), content = content)
+        }
     }
 }
 
@@ -569,6 +770,64 @@ private fun Int.pauseLabel(): String = when (this) {
     480 -> "8 hours"
     1440 -> "24 hours"
     else -> "$this minutes"
+}
+
+private data class AssistantPromptSettings(
+    val hasSeenSettings: Boolean,
+    val openingMessage: String,
+    val goals: String,
+    val options: PromptOptions
+)
+
+private enum class UsagePermissionTarget {
+    TOP_USED,
+    USAGE_STATS
+}
+
+private enum class WifiPermissionTarget {
+    CURRENT,
+    SAVED
+}
+
+private fun loadPromptSettings(
+    prefs: SharedPreferences,
+    usagePermissionAvailable: Boolean
+): AssistantPromptSettings {
+    return AssistantPromptSettings(
+        hasSeenSettings = prefs.getBoolean(KEY_HAS_SEEN_SETTINGS, false),
+        openingMessage = prefs.getString(KEY_OPENING_MESSAGE, "") ?: "",
+        goals = prefs.getString(KEY_GOALS, "") ?: "",
+        options = PromptOptions(
+            includeExistingSchedules = prefs.getBoolean(KEY_INCLUDE_SCHEDULES, true),
+            includeTopUsedApps = prefs.getBoolean(KEY_INCLUDE_TOP_USED, usagePermissionAvailable),
+            includeScheduledApps = prefs.getBoolean(KEY_INCLUDE_SCHEDULED_APPS, true),
+            includeAllInstalledApps = prefs.getBoolean(KEY_INCLUDE_ALL_APPS, false),
+            includeUsageStats = prefs.getBoolean(KEY_INCLUDE_USAGE, false),
+            includeMotionContext = prefs.getBoolean(KEY_INCLUDE_MOTION, false),
+            includeWifiContext = prefs.getBoolean(KEY_INCLUDE_WIFI, false),
+            includeSavedWifiNetworks = prefs.getBoolean(KEY_INCLUDE_SAVED_WIFI, false),
+            includeGoals = true
+        )
+    )
+}
+
+private fun savePromptSettings(
+    prefs: SharedPreferences,
+    settings: AssistantPromptSettings
+) {
+    prefs.edit()
+        .putBoolean(KEY_HAS_SEEN_SETTINGS, settings.hasSeenSettings)
+        .putString(KEY_OPENING_MESSAGE, settings.openingMessage)
+        .putString(KEY_GOALS, settings.goals)
+        .putBoolean(KEY_INCLUDE_SCHEDULES, settings.options.includeExistingSchedules)
+        .putBoolean(KEY_INCLUDE_TOP_USED, settings.options.includeTopUsedApps)
+        .putBoolean(KEY_INCLUDE_SCHEDULED_APPS, settings.options.includeScheduledApps)
+        .putBoolean(KEY_INCLUDE_ALL_APPS, settings.options.includeAllInstalledApps)
+        .putBoolean(KEY_INCLUDE_USAGE, settings.options.includeUsageStats)
+        .putBoolean(KEY_INCLUDE_MOTION, settings.options.includeMotionContext)
+        .putBoolean(KEY_INCLUDE_WIFI, settings.options.includeWifiContext)
+        .putBoolean(KEY_INCLUDE_SAVED_WIFI, settings.options.includeSavedWifiNetworks)
+        .apply()
 }
 
 private const val KEY_HAS_SEEN_SETTINGS = "has_seen_settings"
