@@ -118,8 +118,17 @@ fun FrictionGateScreen(
     }
 
     LaunchedEffect(Unit) {
-        focusRequester.requestFocus()
-        keyboardController?.show()
+        // The text field's node may not be attached on the first frame (e.g.
+        // right after the activity is created/recreated), which makes
+        // requestFocus() throw "FocusRequester is not initialized". Retry on
+        // subsequent frames until it succeeds.
+        repeat(10) {
+            if (runCatching { focusRequester.requestFocus() }.isSuccess) {
+                keyboardController?.show()
+                return@LaunchedEffect
+            }
+            withFrameNanos { }
+        }
     }
 
     fun normalizeUserPinyin(input: String): String =
