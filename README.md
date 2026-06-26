@@ -1,4 +1,4 @@
-# ReDD Block Android (Beta)
+# ReDD Blocker Android (Beta)
 
 Block distracting websites and apps with scheduled or one-off blocks. Stay focused on what matters.
 
@@ -56,7 +56,7 @@ flowchart TB
 
 ### App Blocking
 
-ReDD Block uses Android's Accessibility Service to monitor which app is in the foreground. When a blocked app is detected, the user is immediately returned to the home screen.
+ReDD Blocker uses Android's Accessibility Service to monitor which app is in the foreground. When a blocked app is detected, the user is immediately returned to the home screen.
 
 | Component | Role |
 |-----------|------|
