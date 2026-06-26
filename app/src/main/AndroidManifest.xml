@@ -41,6 +41,8 @@
             android:name=".UnlockActivity"
             android:exported="false"
             android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:launchMode="singleTask"
             android:theme="@style/Theme.ReDDBlockAndroid" />
 
         <service

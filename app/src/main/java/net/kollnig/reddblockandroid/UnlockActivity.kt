@@ -1,5 +1,6 @@
 package net.kollnig.reddblockandroid
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -51,12 +52,33 @@ class UnlockActivity : ComponentActivity() {
                         finish()
                     },
                     onBackPressed = {
-                        // In block mode, go home instead of back to the blocked app
-                        moveTaskToBack(true)
+                        // In block mode, go home instead of back to the blocked app.
+                        // Finish so this gate doesn't linger in its task and resurface
+                        // when the user later relaunches the app from the launcher.
+                        goHomeAndFinish()
                     }
                 )
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        // singleTask delivers a fresh block target to the existing instance
+        // instead of creating a new activity; re-render with the new extras.
+        setIntent(intent)
+        recreate()
+    }
+
+    /** Leaves to the home screen and finishes the gate so it doesn't linger
+     *  in its own task and reappear when the launcher icon is tapped. */
+    private fun goHomeAndFinish() {
+        val homeIntent = Intent(Intent.ACTION_MAIN).apply {
+            addCategory(Intent.CATEGORY_HOME)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
+        startActivity(homeIntent)
+        finish()
     }
 
     private fun formatUnlockDuration(autoReenableMinutes: Int): String? {

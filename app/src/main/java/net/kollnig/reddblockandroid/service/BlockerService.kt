@@ -86,7 +86,7 @@ class BlockerService : AccessibilityService() {
             putExtra(UnlockActivity.EXTRA_SCHEDULE_ID, scheduleId)
             putExtra(UnlockActivity.EXTRA_SCHEDULE_NAME, scheduleName)
             putExtra(UnlockActivity.EXTRA_BLOCKED_TARGET, blockedTarget)
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         startActivity(intent)
     }
