@@ -41,8 +41,11 @@ class BlockerService : AccessibilityService() {
         val pkg = event.packageName?.toString() ?: return
         if (pkg == packageName) return
 
-        // Check for website blocking in supported browsers
-        if (isSupportedBrowser(pkg)) {
+        // Check for website blocking in supported browsers.
+        // If the browser app itself is blocked, skip URL-based website handling
+        // so the whole browser is gated as an app (go home on cancel) rather than
+        // redirected to the reddfocus.org focus page like a single blocked site.
+        if (isSupportedBrowser(pkg) && Schedules.findBlockingScheduleForApp(pkg) == null) {
             val currentTime = System.currentTimeMillis()
             if (currentTime - lastUrlCheckTime >= URL_CHECK_THROTTLE_MS) {
                 val url = extractUrlFromEvent(event)
@@ -56,7 +59,7 @@ class BlockerService : AccessibilityService() {
                             if (blockingSchedule != null) {
                                 Log.d(TAG, "Blocking website $domain in browser ($pkg)")
                                 navigateBrowserToBlank(pkg)
-                                launchFrictionGate(blockingSchedule.id, blockingSchedule.name, domain)
+                                launchFrictionGate(blockingSchedule.id, blockingSchedule.name, domain, isWebsite = true)
                                 return
                             }
                         }
@@ -76,16 +79,22 @@ class BlockerService : AccessibilityService() {
                 lastBlockedTime = now
                 Log.d(TAG, "Blocking app $pkg by schedule: $blockingSchedule")
                 val appLabel = getAppLabel(pkg)
-                launchFrictionGate(blockingSchedule.id, blockingSchedule.name, appLabel)
+                launchFrictionGate(blockingSchedule.id, blockingSchedule.name, appLabel, isWebsite = false)
             }
         }
     }
 
-    private fun launchFrictionGate(scheduleId: String, scheduleName: String, blockedTarget: String) {
+    private fun launchFrictionGate(
+        scheduleId: String,
+        scheduleName: String,
+        blockedTarget: String,
+        isWebsite: Boolean
+    ) {
         val intent = Intent(this, UnlockActivity::class.java).apply {
             putExtra(UnlockActivity.EXTRA_SCHEDULE_ID, scheduleId)
             putExtra(UnlockActivity.EXTRA_SCHEDULE_NAME, scheduleName)
             putExtra(UnlockActivity.EXTRA_BLOCKED_TARGET, blockedTarget)
+            putExtra(UnlockActivity.EXTRA_IS_WEBSITE, isWebsite)
             addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         startActivity(intent)
