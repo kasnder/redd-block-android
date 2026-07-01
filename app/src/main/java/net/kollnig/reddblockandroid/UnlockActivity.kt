@@ -21,6 +21,7 @@ class UnlockActivity : ComponentActivity() {
         const val EXTRA_SCHEDULE_ID = "schedule_id"
         const val EXTRA_SCHEDULE_NAME = "schedule_name"
         const val EXTRA_BLOCKED_TARGET = "blocked_target"
+        const val EXTRA_IS_WEBSITE = "is_website"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,6 +31,7 @@ class UnlockActivity : ComponentActivity() {
         val scheduleId = intent.getStringExtra(EXTRA_SCHEDULE_ID)
         val scheduleName = intent.getStringExtra(EXTRA_SCHEDULE_NAME)
         val blockedTarget = intent.getStringExtra(EXTRA_BLOCKED_TARGET)
+        val isWebsite = intent.getBooleanExtra(EXTRA_IS_WEBSITE, false)
         val schedule = scheduleId?.let { Schedules.get(it) }
 
         if (schedule == null || !schedule.isEnabled) {
@@ -52,10 +54,18 @@ class UnlockActivity : ComponentActivity() {
                         finish()
                     },
                     onBackPressed = {
-                        // In block mode, go home instead of back to the blocked app.
-                        // Finish so this gate doesn't linger in its task and resurface
-                        // when the user later relaunches the app from the launcher.
-                        goHomeAndFinish()
+                        if (isWebsite) {
+                            // The browser has already been redirected to the focus
+                            // page (reddfocus.org). Just finish so Android returns to
+                            // it, rather than kicking the user out to the home screen.
+                            finish()
+                        } else {
+                            // For blocked apps, returning to them would immediately
+                            // re-trigger the gate. Go home instead, and finish so this
+                            // gate doesn't linger in its task and resurface when the
+                            // user later relaunches the app from the launcher.
+                            goHomeAndFinish()
+                        }
                     }
                 )
             }
