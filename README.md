@@ -1,3 +1,5 @@
+**ARCHIVED:** Now moved into https://github.com/ulyngs/digital-habits-blocker
+
 # ReDD Blocker Android (Beta)
 
 Block distracting websites and apps with scheduled or one-off blocks. Stay focused on what matters.
