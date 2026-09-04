@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "ReDD Block Android"
+rootProject.name = "Digital Habits Blocker"
 include ':app'
