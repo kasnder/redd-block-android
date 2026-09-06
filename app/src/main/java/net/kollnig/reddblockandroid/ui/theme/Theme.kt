@@ -1,6 +1,5 @@
 package net.kollnig.reddblockandroid.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -9,25 +8,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val LightColorScheme = lightColorScheme(
-    primary = IndigoPrimary,
+    primary = DarkNavy,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFE8EAFF),
+    primaryContainer = Color(0xFFDCE4F1),
     onPrimaryContainer = DarkNavy,
 
     secondary = SlateBlue,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFE2E8F0),
+    secondaryContainer = Color(0xFFE8E2D8),
     onSecondaryContainer = DarkNavy,
 
     tertiary = BadgeGreen,
     onTertiary = Color.White,
     tertiaryContainer = BadgeGreenBg,
-    onTertiaryContainer = Color(0xFF276749),
+    onTertiaryContainer = ChipGreenText,
 
     error = SoftRed,
     onError = Color.White,
     errorContainer = SoftRedBg,
-    onErrorContainer = Color(0xFF9B2C2C),
+    onErrorContainer = Color(0xFF7C2D2D),
 
     background = CoolGrey,
     onBackground = TextPrimary,
@@ -36,26 +35,26 @@ private val LightColorScheme = lightColorScheme(
     surfaceVariant = SurfaceLight,
     onSurfaceVariant = TextSecondary,
 
-    outline = Color(0xFFCBD5E0),
-    outlineVariant = Color(0xFFE2E8F0),
+    outline = Color(0xFFC6BFB5),
+    outlineVariant = Color(0xFFE5DED4),
 
     surfaceContainerLowest = White,
-    surfaceContainerLow = Color(0xFFF7FAFC),
-    surfaceContainer = Color(0xFFF0F4F8),
+    surfaceContainerLow = SurfaceLight,
+    surfaceContainer = Color(0xFFF0EBE3),
     surfaceContainerHigh = White,
-    surfaceContainerHighest = Color(0xFFE2E8F0),
+    surfaceContainerHighest = Color(0xFFE5DED4),
 )
 
 private val DarkColorScheme = darkColorScheme(
     primary = IndigoPrimaryLight,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFF3C4178),
-    onPrimaryContainer = Color(0xFFE0E0FF),
+    primaryContainer = Color(0xFF304666),
+    onPrimaryContainer = Color(0xFFDCE4F1),
 
     secondary = SlateBlueLight,
     onSecondary = Color.White,
     secondaryContainer = DarkSurfaceHigh,
-    onSecondaryContainer = Color(0xFFE2E8F0),
+    onSecondaryContainer = Color(0xFFE5E7EB),
 
     tertiary = BadgeGreen,
     onTertiary = Color.White,
@@ -68,14 +67,14 @@ private val DarkColorScheme = darkColorScheme(
     onErrorContainer = Color(0xFFFED7D7),
 
     background = DarkBackground,
-    onBackground = Color(0xFFE2E8F0),
+    onBackground = Color(0xFFE5E7EB),
     surface = DarkSurface,
-    onSurface = Color(0xFFE2E8F0),
+    onSurface = Color(0xFFE5E7EB),
     surfaceVariant = DarkSurfaceHigh,
-    onSurfaceVariant = Color(0xFFA0AEC0),
+    onSurfaceVariant = Color(0xFFB8C1CC),
 
-    outline = Color(0xFF4A5568),
-    outlineVariant = Color(0xFF2D3748),
+    outline = Color(0xFF64748B),
+    outlineVariant = Color(0xFF334155),
 
     surfaceContainerLowest = DarkBackground,
     surfaceContainerLow = DarkSurface,
