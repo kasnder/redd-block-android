@@ -19,6 +19,24 @@
     <string name="permissions">Permissions</string>
     <string name="permissions_desc">Manage app permissions</string>
 
+    <!-- Focus spaces -->
+    <string name="new_focus_space">New focus space</string>
+    <string name="edit_focus_space">Edit focus space</string>
+    <string name="focus_space_name">Focus space name</string>
+    <string name="focus_space_items">%1$d websites · %2$d apps</string>
+    <string name="focus_space_blocking_now">Blocking now</string>
+    <string name="focus_space_off">Off</string>
+    <string name="focus_space_paused">Paused</string>
+    <string name="focus_space_scheduled">Scheduled</string>
+    <string name="focus_space_manual_summary">Manual · starts when enabled</string>
+    <string name="focus_space_daily_summary">Daily %1$s – %2$s</string>
+    <string name="focus_space_weekly_summary">%1$s · %2$s – %3$s</string>
+    <string name="focus_space_status_line">%1$s · %2$s</string>
+    <string name="focus_space_toggle">Toggle %s</string>
+    <string name="focus_space_empty_title">No focus spaces yet</string>
+    <string name="focus_space_empty_desc">Create one to choose what you want to protect your attention from.</string>
+    <string name="settings">Settings</string>
+
     <!-- Schedules Screen -->
     <string name="back">Back</string>
     <string name="create_schedule">Create Schedule</string>
@@ -54,6 +72,19 @@
     <string name="delete">Delete</string>
     <string name="delete_schedule">Delete Schedule</string>
     <string name="delete_schedule_confirm">Delete \"%s\"? This cannot be undone.</string>
+    <string name="delete_focus_space">Delete focus space</string>
+    <string name="delete_focus_space_confirm">Delete \"%s\"? This cannot be undone.</string>
+
+    <string name="what_to_block">What to block</string>
+    <string name="when_to_block">When to block</string>
+    <string name="to_stop_early">To stop early</string>
+    <string name="save_changes">Save changes</string>
+    <string name="what_to_block_summary">%1$d websites · %2$d apps</string>
+    <string name="when_to_block_summary_manual">Manual · starts when enabled</string>
+    <string name="when_to_block_summary_daily">Daily %1$s – %2$s</string>
+    <string name="when_to_block_summary_weekly">%1$s · %2$s – %3$s</string>
+    <string name="stop_early_summary">Type %1$d words · unlock %2$s</string>
+    <string name="no_items_added">Nothing added yet</string>
 
     <!-- Friction Settings -->
     <string name="friction_settings">Friction Settings</string>
@@ -134,7 +165,8 @@
     <string name="block_gate_instruction_chinese">Blocked by your \"%1$s\" schedule. To unlock, type the pinyin for each character:</string>
     <string name="override_button">Override</string>
     <string name="type_here_hint">Type here…</string>
-    <string name="footer_text">Made with ❤\uFE0F by reddfocus.org</string>
+    <string name="footer_text">Made with ❤\uFE0F by digitalhabits.org</string>
+    <string name="footer_url" translatable="false">https://digitalhabits.org</string>
     <string name="items_summary">%1$d websites (%2$s)</string>
     <string name="start_schedule_button">Start schedule: %s</string>
 
