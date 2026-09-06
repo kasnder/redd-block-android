@@ -334,7 +334,7 @@ fun HomeScreen(
                             text = { Text(stringResource(R.string.import_rules)) },
                             onClick = {
                                 isMenuExpanded = false
-                                importLauncher.launch(arrayOf("application/json"))
+                                importLauncher.launch(arrayOf("*/*"))
                             },
                             leadingIcon = {
                                 Icon(Icons.Rounded.Download, contentDescription = null)
