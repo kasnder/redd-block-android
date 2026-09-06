@@ -55,6 +55,12 @@ object Schedules {
 
     fun importSchedules(jsonString: String, context: Context): Int {
         return try {
+            val tauriSchedules = TauriBackupImporter().importSchedules(jsonString)
+            if (tauriSchedules != null) {
+                tauriSchedules.forEach { save(it, context) }
+                return tauriSchedules.size
+            }
+
             val arr = JSONArray(jsonString)
             var count = 0
             for (i in 0 until arr.length()) {
